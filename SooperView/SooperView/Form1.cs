@@ -93,6 +93,7 @@ namespace SooperView
             }
             process.WaitForExit();
             process.Close();
+            process = null;
             return properties;
 
         }
@@ -147,6 +148,12 @@ namespace SooperView
 
         private void SooperItProcessThread()
         {
+            bool completed = false;
+            btnCancel.BeginInvoke(() =>
+            {
+                btnCancel.Text = $"Cancel (Progress: 0.0%)";
+            });
+
             _process = new Process
             {
                 StartInfo = new ProcessStartInfo
@@ -160,34 +167,46 @@ namespace SooperView
             };
             //process.OutputDataReceived += SooperItProcessOutputHandler;
             _process.Start();
-
             //string line = outLine.Data;
             var timeRegex = new Regex(@"time=(\d+):(\d+):(\d+).(\d+)", RegexOptions.Compiled);
             string line;
-            while ((line = _process.StandardError.ReadLine()) != null)
+            try
             {
-                // Parse the "time=" field to get the current progress
-                var match = timeRegex.Match(line);
-                if (match.Success)
+                while ((line = _process.StandardError.ReadLine()) != null)
                 {
-                    // Convert time (hours, minutes, seconds, milliseconds) to seconds
-                    double hours = double.Parse(match.Groups[1].Value);
-                    double minutes = double.Parse(match.Groups[2].Value);
-                    double seconds = double.Parse(match.Groups[3].Value);
-                    double milliseconds = double.Parse(match.Groups[4].Value);
-
-                    double currentProgress = hours * 3600 + minutes * 60 + seconds + milliseconds / 100;
-                    float percentage = (float)(currentProgress / _videoDuration * 100);
-                    prgProcess.BeginInvoke(() =>
+                    // Parse the "time=" field to get the current progress
+                    var match = timeRegex.Match(line);
+                    if (match.Success)
                     {
-                        prgProcess.Value = (int)percentage;
-                        prgProcess.Update();
-                    });
-                }
-            }
+                        // Convert time (hours, minutes, seconds, milliseconds) to seconds
+                        double hours = double.Parse(match.Groups[1].Value);
+                        double minutes = double.Parse(match.Groups[2].Value);
+                        double seconds = double.Parse(match.Groups[3].Value);
+                        double milliseconds = double.Parse(match.Groups[4].Value);
 
-            _process.WaitForExit();
-            _process.Close();
+                        double currentProgress = hours * 3600 + minutes * 60 + seconds + milliseconds / 100;
+                        float percentage = (float)(currentProgress / _videoDuration * 100);
+                        prgProcess.BeginInvoke(() =>
+                        {
+                            prgProcess.Value = (int)percentage;
+                            prgProcess.Update();
+                        });
+                        btnCancel.BeginInvoke(() =>
+                        {
+                            btnCancel.Text = $"Cancel (Progress: {percentage:F2}%)";
+                        });
+                    }
+                }
+            } catch { }
+
+            //handle if killed by cancel and not normal ending
+            if (_process != null)
+            {
+                completed = true;
+                _process.WaitForExit();
+                _process.Close();
+                _process = null;
+            }
           
             btnPickSaveAsFileName.BeginInvoke(() =>
             {
@@ -210,6 +229,7 @@ namespace SooperView
             btnCancel.BeginInvoke(() =>
             {
                 btnCancel.Enabled = false;
+                btnCancel.Text = "Cancel";
             });
             txtSaveAsFileName.BeginInvoke(() =>
             {
@@ -220,7 +240,14 @@ namespace SooperView
                 txtSourceFileName.Enabled = true;
             });
 
-            MessageBox.Show("Conversion Completed!");
+            if (completed)
+            {
+                MessageBox.Show("Conversion Completed!");
+            }
+            else
+            {
+                MessageBox.Show("Conversion Cancelled!");
+            }
         }
 
         private void btnPickSourceFile_Click(object sender, EventArgs e)
@@ -255,12 +282,15 @@ namespace SooperView
             {
                 _process.Kill();
                 _process.Close();
+                _process = null;
             }
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
             CancelProcessing();
+            btnCancel.Enabled = false;
+            btnCancel.Text = "Cancel";
         }
     }
 }

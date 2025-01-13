@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35222.181
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SooperView", "SooperView\SooperView.csproj", "{205CB163-8C94-42CC-8F60-FBEC654CA760}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{205CB163-8C94-42CC-8F60-FBEC654CA760}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{205CB163-8C94-42CC-8F60-FBEC654CA760}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{205CB163-8C94-42CC-8F60-FBEC654CA760}.Debug|x64.ActiveCfg = Debug|x64
+		{205CB163-8C94-42CC-8F60-FBEC654CA760}.Debug|x64.Build.0 = Debug|x64
+		{205CB163-8C94-42CC-8F60-FBEC654CA760}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{205CB163-8C94-42CC-8F60-FBEC654CA760}.Release|Any CPU.Build.0 = Release|Any CPU
+		{205CB163-8C94-42CC-8F60-FBEC654CA760}.Release|x64.ActiveCfg = Release|x64
+		{205CB163-8C94-42CC-8F60-FBEC654CA760}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B3427A67-1A5E-4FF0-9EC1-ABAB2C438DBA}
+	EndGlobalSection
+EndGlobal

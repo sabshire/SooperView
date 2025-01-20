@@ -7,19 +7,21 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>AnyCPU;x64</Platforms>
+    <StartupObject>SooperView.Program</StartupObject>
+    <ApplicationIcon>16x16-icon-45597-Windows.ico</ApplicationIcon>
+	<Version>1.2.0</Version>
+	<Authors>Stacey Abshire</Authors>
+	<Company>StacemanFPV</Company>
   </PropertyGroup>
 
   <ItemGroup>
     <None Remove="ffmpeg\ffmpeg.exe" />
-    <None Remove="ffmpeg\ffplay.exe" />
     <None Remove="ffmpeg\ffprobe.exe" />
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="16x16-icon-45597-Windows.ico" />
     <Content Include="ffmpeg\ffmpeg.exe">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="ffmpeg\ffplay.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="ffmpeg\ffprobe.exe">

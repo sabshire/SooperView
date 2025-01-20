@@ -11,6 +11,7 @@ namespace SooperView
         private string _ymapFilePath = Path.Combine(Path.GetTempPath(), "ymap.pgm");
         private double _videoDuration;
         private Process _process;
+        private int _aspectX, _aspectY;
 
         public Form1()
         {
@@ -22,10 +23,15 @@ namespace SooperView
             if (File.Exists(txtSourceFileName.Text))
             {
                 var vidProperties = GetVideoProperties(txtSourceFileName.Text);
+
+                int d = gcd(vidProperties.Width, vidProperties.Height);
+                _aspectX = vidProperties.Width / d;
+                _aspectY = vidProperties.Height / d;
+
                 if (vidProperties != null)
                 {
-                    if ((vidProperties.Height * 4 / 3) == vidProperties.Width)
-                    {
+                    //if ((vidProperties.Height * _aspectX / _aspectY) == vidProperties.Width)
+                    //{
                         CreateRemapFiles(vidProperties);
                         if (File.Exists(_xmapFilePath) && File.Exists(_ymapFilePath))
                         {
@@ -36,11 +42,11 @@ namespace SooperView
                         {
                             MessageBox.Show("There was a problem generating the remap files!");
                         }
-                    }
-                    else
-                    {
-                        MessageBox.Show($"{txtSourceFileName.Text} is not a 4:3 video file!");
-                    }
+                    //}
+                    //else
+                    //{
+                    //    MessageBox.Show($"{txtSourceFileName.Text} is not a 4:3 video file!");
+                    //}
                 }
             }
             else
@@ -159,7 +165,7 @@ namespace SooperView
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "ffmpeg\\ffmpeg",
-                    Arguments = $"-i \"{txtSourceFileName.Text}\" -i \"{_xmapFilePath}\" -i \"{_ymapFilePath}\" -filter_complex \"[0:v][1:v][2:v]remap\" -y \"{txtSaveAsFileName.Text}\"",
+                    Arguments = $"-i \"{txtSourceFileName.Text}\" -i \"{_xmapFilePath}\" -i \"{_ymapFilePath}\" -filter_complex \"[0:v][1:v][2:v]remap\" -y -c:a copy \"{txtSaveAsFileName.Text}\"",
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
@@ -291,6 +297,14 @@ namespace SooperView
             CancelProcessing();
             btnCancel.Enabled = false;
             btnCancel.Text = "Cancel";
+        }
+
+        int gcd(int a, int b)
+        {
+            if (b == 0)
+                return a;
+            return gcd(b, a % b);
+
         }
     }
 }

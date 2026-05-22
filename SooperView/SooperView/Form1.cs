@@ -15,6 +15,9 @@ namespace SooperView
         public Form1()
         {
             InitializeComponent();
+            cmbEncoding.SelectedIndex = 1; //h265
+            cmbHardware.SelectedIndex = 0; //cpu
+            cmbColorspace.SelectedIndex = 1; //10-bit
         }
 
         private void btnSooperViewIt_Click(object sender, EventArgs e)
@@ -134,7 +137,7 @@ namespace SooperView
         }
 
         private void SooperItProcess()
-        {            
+        {
             //ffmpeg -i DJI_0669.MP4 -i xmap.pgm -i ymap.pgm -filter_complex "[0:v][1:v][2:v]remap" -c:v libx265 -preset medium -crf 18 -pix_fmt yuv420p10le -y DJI_0669_SV.MP4
             btnPickSaveAsFileName.Enabled = false;
             btnPickSourceFile.Enabled = false;
@@ -142,6 +145,12 @@ namespace SooperView
             btnCancel.Enabled = true;
             txtSaveAsFileName.Enabled = false;
             txtSourceFileName.Enabled = false;
+
+            cmbColorspace.Enabled = false;
+            cmbHardware.Enabled = false;
+            cmbEncoding.Enabled = false;
+            nudCRF.Enabled = false;
+
             Thread processThread = new Thread(SooperItProcessThread);
             processThread.Start();
         }
@@ -154,17 +163,114 @@ namespace SooperView
                 btnCancel.Text = $"Cancel (Progress: 0.0%)";
             });
 
+
+            string encoder = "libx265";
+            int hardware = 0;
+            int encoding = 0;
+            int crf = 0;
+            int colorspace = 0;
+            cmbHardware.Invoke(() =>
+            {
+                hardware = cmbHardware.SelectedIndex;
+            });
+            cmbEncoding.Invoke(() =>
+            {
+                encoding = cmbEncoding.SelectedIndex;
+            });
+            nudCRF.Invoke(() =>
+            {
+                crf = (int)nudCRF.Value;
+            });
+            cmbColorspace.Invoke(() =>
+            {
+                colorspace = cmbColorspace.SelectedIndex;
+            });
+
+            switch (hardware)
+            {
+                case 0: //CPU
+                    switch (encoding)
+                    {
+                        case 0: //h624
+                            encoder = "libx264";
+                            break;
+                        case 1: //h265
+                            encoder = "libx265";
+                            break;
+                        case 2: //av1
+                            encoder = "libsvtav1";
+                            break;
+                    }
+                    break;
+                case 1: //Nvidia
+                    switch (encoding)
+                    {
+                        case 0: //h624
+                            encoder = "h264_nvenc";
+                            break;
+                        case 1: //h265
+                            encoder = "hevc_nvenc";
+                            break;
+                        case 2: //av1
+                            encoder = "av1_nvenc";
+                            break;
+                    }
+                    break;
+                case 2: //Intel
+                    switch (encoding)
+                    {
+                        case 0: //h624
+                            encoder = "h264_qsv";
+                            break;
+                        case 1: //h265
+                            encoder = "hevc_qsv";
+                            break;
+                        case 2: //av1
+                            encoder = "av1_qsv";
+                            break;
+                    }
+                    break;
+                case 3: //AMD
+                    switch (encoding)
+                    {
+                        case 0: //h624
+                            encoder = "h264_amf";
+                            break;
+                        case 1: //h265
+                            encoder = "hevc_amf";
+                            break;
+                        case 2: //av1
+                            encoder = "av1_amf";
+                            break;
+                    }
+                    break;
+            }
+
+            string pixfmt = "yuv420p10le";
+            switch (colorspace)
+            {
+                case 0: // 8-bit
+                    pixfmt = "yuv420p";
+                    break;
+                case 1: //10-bit
+                    pixfmt = "yuv420p10le";
+                    break;
+            }
+
+            string processArgs = $"-i \"{txtSourceFileName.Text}\" -i \"{_xmapFilePath}\" -i \"{_ymapFilePath}\" -filter_complex \"[0:v][1:v][2:v]remap\" -c:v {encoder} -crf {crf} -pix_fmt {pixfmt} -y \"{txtSaveAsFileName.Text}\"";
+
             _process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "ffmpeg\\ffmpeg",
-                    Arguments = $"-i \"{txtSourceFileName.Text}\" -i \"{_xmapFilePath}\" -i \"{_ymapFilePath}\" -filter_complex \"[0:v][1:v][2:v]remap\" -c:v libx265 -preset medium -crf 18 -pix_fmt yuv420p10le -y \"{txtSaveAsFileName.Text}\"",
+                    Arguments = processArgs,
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true
                 }
             };
+            //libx265
             //process.OutputDataReceived += SooperItProcessOutputHandler;
             _process.Start();
             //string line = outLine.Data;
@@ -197,7 +303,8 @@ namespace SooperView
                         });
                     }
                 }
-            } catch { }
+            }
+            catch { }
 
             //handle if killed by cancel and not normal ending
             if (_process != null)
@@ -207,7 +314,7 @@ namespace SooperView
                 _process.Close();
                 _process = null;
             }
-          
+
             btnPickSaveAsFileName.BeginInvoke(() =>
             {
                 btnPickSaveAsFileName.Enabled = true;
@@ -238,6 +345,26 @@ namespace SooperView
             txtSourceFileName.BeginInvoke(() =>
             {
                 txtSourceFileName.Enabled = true;
+            });
+
+            cmbColorspace.BeginInvoke(() =>
+            {
+                cmbColorspace.Enabled = true;
+            });
+
+            cmbHardware.BeginInvoke(() =>
+            {
+                cmbHardware.Enabled = true;
+            });
+
+            cmbEncoding.BeginInvoke(() =>
+            {
+                cmbEncoding.Enabled = true;
+            });
+
+            nudCRF.BeginInvoke(() =>
+            {
+                nudCRF.Enabled = true;
             });
 
             if (completed)

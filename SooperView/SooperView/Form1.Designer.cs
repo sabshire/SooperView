@@ -43,11 +43,25 @@
             openFileDialog1 = new OpenFileDialog();
             openFileDialog2 = new OpenFileDialog();
             ofdPickSaveAsFileName = new OpenFileDialog();
+            flowLayoutPanel2 = new FlowLayoutPanel();
+            label3 = new Label();
+            nudCRF = new NumericUpDown();
+            label4 = new Label();
+            cmbEncoding = new ComboBox();
+            label5 = new Label();
+            cmbHardware = new ComboBox();
+            label6 = new Label();
+            cmbColorspace = new ComboBox();
+            groupBox1 = new GroupBox();
             flowLayoutPanel1.SuspendLayout();
+            flowLayoutPanel2.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)nudCRF).BeginInit();
+            groupBox1.SuspendLayout();
             SuspendLayout();
             // 
             // flowLayoutPanel1
             // 
+            flowLayoutPanel1.BackColor = SystemColors.Control;
             flowLayoutPanel1.Controls.Add(label1);
             flowLayoutPanel1.Controls.Add(txtSourceFileName);
             flowLayoutPanel1.Controls.Add(btnPickSourceFile);
@@ -175,11 +189,117 @@
             ofdPickSaveAsFileName.Title = "Save As...";
             ofdPickSaveAsFileName.FileOk += ofdPickSaveAsFileName_FileOk;
             // 
+            // flowLayoutPanel2
+            // 
+            flowLayoutPanel2.BackColor = SystemColors.Control;
+            flowLayoutPanel2.Controls.Add(label3);
+            flowLayoutPanel2.Controls.Add(nudCRF);
+            flowLayoutPanel2.Controls.Add(label4);
+            flowLayoutPanel2.Controls.Add(cmbEncoding);
+            flowLayoutPanel2.Controls.Add(label5);
+            flowLayoutPanel2.Controls.Add(cmbHardware);
+            flowLayoutPanel2.Controls.Add(label6);
+            flowLayoutPanel2.Controls.Add(cmbColorspace);
+            flowLayoutPanel2.Location = new Point(6, 22);
+            flowLayoutPanel2.Name = "flowLayoutPanel2";
+            flowLayoutPanel2.Size = new Size(318, 133);
+            flowLayoutPanel2.TabIndex = 1;
+            // 
+            // label3
+            // 
+            label3.AutoSize = true;
+            label3.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            label3.Location = new Point(3, 0);
+            label3.Name = "label3";
+            label3.Size = new Size(158, 15);
+            label3.TabIndex = 0;
+            label3.Text = "CRF (Constant Rate Factor):";
+            // 
+            // nudCRF
+            // 
+            nudCRF.Location = new Point(167, 3);
+            nudCRF.Maximum = new decimal(new int[] { 51, 0, 0, 0 });
+            nudCRF.Name = "nudCRF";
+            nudCRF.Size = new Size(141, 23);
+            nudCRF.TabIndex = 1;
+            nudCRF.Value = new decimal(new int[] { 18, 0, 0, 0 });
+            // 
+            // label4
+            // 
+            label4.AutoSize = true;
+            label4.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            label4.Location = new Point(3, 29);
+            label4.Name = "label4";
+            label4.Size = new Size(60, 15);
+            label4.TabIndex = 2;
+            label4.Text = "Encoding:";
+            // 
+            // cmbEncoding
+            // 
+            cmbEncoding.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbEncoding.FormattingEnabled = true;
+            cmbEncoding.Items.AddRange(new object[] { "H264", "H265 (HEVC)", "AV1 (SVT-AV1)" });
+            cmbEncoding.Location = new Point(69, 32);
+            cmbEncoding.Name = "cmbEncoding";
+            cmbEncoding.Size = new Size(240, 23);
+            cmbEncoding.TabIndex = 3;
+            // 
+            // label5
+            // 
+            label5.AutoSize = true;
+            label5.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            label5.Location = new Point(3, 58);
+            label5.Name = "label5";
+            label5.Size = new Size(65, 15);
+            label5.TabIndex = 4;
+            label5.Text = "Hardware:";
+            // 
+            // cmbHardware
+            // 
+            cmbHardware.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbHardware.FormattingEnabled = true;
+            cmbHardware.Items.AddRange(new object[] { "CPU", "NVidia", "Intel", "AMD" });
+            cmbHardware.Location = new Point(74, 61);
+            cmbHardware.Name = "cmbHardware";
+            cmbHardware.Size = new Size(233, 23);
+            cmbHardware.TabIndex = 5;
+            // 
+            // label6
+            // 
+            label6.AutoSize = true;
+            label6.Location = new Point(3, 87);
+            label6.Name = "label6";
+            label6.Size = new Size(39, 15);
+            label6.TabIndex = 6;
+            label6.Text = "Color:";
+            // 
+            // cmbColorspace
+            // 
+            cmbColorspace.DropDownStyle = ComboBoxStyle.DropDownList;
+            cmbColorspace.FormattingEnabled = true;
+            cmbColorspace.Items.AddRange(new object[] { "8-bit Colorspace", "10-bit Colorspace" });
+            cmbColorspace.Location = new Point(48, 90);
+            cmbColorspace.Name = "cmbColorspace";
+            cmbColorspace.Size = new Size(259, 23);
+            cmbColorspace.TabIndex = 7;
+            // 
+            // groupBox1
+            // 
+            groupBox1.Controls.Add(flowLayoutPanel2);
+            groupBox1.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            groupBox1.Location = new Point(12, 184);
+            groupBox1.Name = "groupBox1";
+            groupBox1.Size = new Size(330, 161);
+            groupBox1.TabIndex = 2;
+            groupBox1.TabStop = false;
+            groupBox1.Text = "Options:";
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(354, 177);
+            ClientSize = new Size(354, 357);
+            Controls.Add(groupBox1);
             Controls.Add(flowLayoutPanel1);
             FormBorderStyle = FormBorderStyle.FixedSingle;
             Icon = (Icon)resources.GetObject("$this.Icon");
@@ -189,6 +309,10 @@
             FormClosed += Form1_FormClosed;
             flowLayoutPanel1.ResumeLayout(false);
             flowLayoutPanel1.PerformLayout();
+            flowLayoutPanel2.ResumeLayout(false);
+            flowLayoutPanel2.PerformLayout();
+            ((System.ComponentModel.ISupportInitialize)nudCRF).EndInit();
+            groupBox1.ResumeLayout(false);
             ResumeLayout(false);
         }
 
@@ -208,5 +332,15 @@
         private OpenFileDialog openFileDialog2;
         private OpenFileDialog ofdPickSaveAsFileName;
         private Button btnCancel;
+        private FlowLayoutPanel flowLayoutPanel2;
+        private Label label3;
+        private NumericUpDown nudCRF;
+        private Label label4;
+        private ComboBox cmbEncoding;
+        private Label label5;
+        private ComboBox cmbHardware;
+        private GroupBox groupBox1;
+        private Label label6;
+        private ComboBox cmbColorspace;
     }
 }

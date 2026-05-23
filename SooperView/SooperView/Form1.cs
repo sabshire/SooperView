@@ -1,6 +1,7 @@
 using Newtonsoft.Json;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
 using System.Text.RegularExpressions;
 
 namespace SooperView
@@ -11,20 +12,114 @@ namespace SooperView
         private string _ymapFilePath = Path.Combine(Path.GetTempPath(), "ymap.pgm");
         private double _videoDuration;
         private Process _process;
+        private string _currentSourceFileName;
+        private string _currentDestinationFileName;
+        private int _currentFileIndex = -1;
+        private int _totalFiles = 0;
+        private bool _processing = false;
 
+        private Dictionary<int, string[]> presets = new Dictionary<int, string[]>();
+        private Dictionary<string, int> presetDefaults = new Dictionary<string, int>();
         public Form1()
         {
             InitializeComponent();
-            cmbEncoding.SelectedIndex = 1; //h265
+            PopulatePresets();
+            PopulatePresetDefaults();
             cmbHardware.SelectedIndex = 0; //cpu
+            cmbEncoding.SelectedIndex = 1; //h265
             cmbColorspace.SelectedIndex = 1; //10-bit
+            cmbTune.SelectedIndex = 0; //none
+            cmbResolution.SelectedIndex = 0; //4k
+            SelectDefaultPreset();
+            lblVersion.Text = $"v{Application.ProductVersion}";
+
+        }
+
+        private void PopulatePresets()
+        {
+            //cpu (lib264, lib265)
+            presets.Add(0, new string[] { "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo" });
+            //nvidia
+            presets.Add(1, new string[] { "p1", "p2", "p3", "p4", "p5", "p6", "p7" });
+            //intel
+            presets.Add(2, new string[] { "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow" });
+            //amd
+            presets.Add(3, new string[] { "quality", "balance", "speed" });
+            //cpu (av1)
+            presets.Add(4, new string[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" });
+
+        }
+
+        private void PopulatePresetDefaults()
+        {
+            //cpu libx264
+            presetDefaults.Add("00", 5);
+            //cpu libx265
+            presetDefaults.Add("01", 5);
+            //cpu av1
+            presetDefaults.Add("02", 6);
+            //nvidia x264
+            presetDefaults.Add("10", 3);
+            //nvidia x265
+            presetDefaults.Add("11", 3);
+            //nvidia av1
+            presetDefaults.Add("12", 3);
+            //intel x264
+            presetDefaults.Add("20", 3);
+            //intel x265
+            presetDefaults.Add("21", 3);
+            //intel av1
+            presetDefaults.Add("22", 3);
+            //amd x264
+            presetDefaults.Add("30", 1);
+            //amd x265
+            presetDefaults.Add("31", 1);
+            //amd av1
+            presetDefaults.Add("32", 1);
         }
 
         private void btnSooperViewIt_Click(object sender, EventArgs e)
         {
-            if (File.Exists(txtSourceFileName.Text))
+            ClearLog();
+            _totalFiles = lvFiles.Items.Count;
+            _currentFileIndex = -1;
+            Task.Run(() =>
             {
-                var vidProperties = GetVideoProperties(txtSourceFileName.Text);
+                _processing = true;
+                while (_processing)
+                {
+                    StartNextSooperItProcess();
+
+                    if (_processing)
+                    {
+                        if (_currentFileIndex + 1 < _totalFiles)
+                        {
+                            StartNextSooperItProcess();
+                        }
+                        else
+                        {
+                            _processing = false;
+                        }
+                    }
+                }
+
+                ResetUI();
+            });
+        }
+
+        private void StartNextSooperItProcess()
+        {
+            _currentFileIndex++;
+            lvFiles.Invoke(() =>
+            {
+                ListViewItem item = lvFiles.Items[_currentFileIndex];
+                _currentSourceFileName = item.SubItems[0].Text;
+                _currentDestinationFileName = item.SubItems[1].Text;
+            });
+
+            if (File.Exists(_currentSourceFileName))
+            {
+                var vidProperties = GetVideoProperties(_currentSourceFileName);
                 if (vidProperties != null)
                 {
                     if ((vidProperties.Height * 4 / 3) == vidProperties.Width)
@@ -37,19 +132,38 @@ namespace SooperView
                         }
                         else
                         {
-                            MessageBox.Show("There was a problem generating the remap files!");
+                            UpdateLog("There was a problem generating the remap files!");
                         }
                     }
                     else
                     {
-                        MessageBox.Show($"{txtSourceFileName.Text} is not a 4:3 video file!");
+                        UpdateLog($"{_currentSourceFileName} is not a 4:3 video file!");
                     }
+                }
+                else
+                {
+                    UpdateLog($"{_currentSourceFileName} is not a 4:3 video file!");
                 }
             }
             else
             {
-                MessageBox.Show($"{txtSourceFileName.Text} doesn't exist!");
+                UpdateLog($"{_currentSourceFileName} doesn't exist!");
             }
+        }
+
+        private void ClearLog()
+        {
+            lvLog.Invoke(() =>
+            {
+                lvLog.Items.Clear();
+            });
+        }
+        private void UpdateLog(string log)
+        {
+            lvLog.Invoke(() =>
+            {
+                lvLog.Items.Add(log);
+            });
         }
 
         /* 
@@ -138,21 +252,36 @@ namespace SooperView
 
         private void SooperItProcess()
         {
-            //ffmpeg -i DJI_0669.MP4 -i xmap.pgm -i ymap.pgm -filter_complex "[0:v][1:v][2:v]remap" -c:v libx265 -preset medium -crf 18 -pix_fmt yuv420p10le -y DJI_0669_SV.MP4
-            btnPickSaveAsFileName.Enabled = false;
-            btnPickSourceFile.Enabled = false;
-            btnSooperViewIt.Enabled = false;
-            btnCancel.Enabled = true;
-            txtSaveAsFileName.Enabled = false;
-            txtSourceFileName.Enabled = false;
+            btnSooperViewIt.Invoke(() =>
+            {
+                btnSooperViewIt.Enabled = false;
+            });
+            btnCancel.Invoke(() =>
+            {
+                btnCancel.Enabled = true;
+            });
+            lvFiles.Invoke(() =>
+            {
+                lvFiles.Enabled = false;
+            });
+            cmbColorspace.Invoke(() =>
+            {
+                cmbColorspace.Enabled = false;
+            });
+            cmbHardware.Invoke(() =>
+            {
+                cmbHardware.Enabled = false;
+            });
+            cmbEncoding.Invoke(() =>
+            {
+                cmbEncoding.Enabled = false;
+            });
+            nudCRF.Invoke(() =>
+            {
+                nudCRF.Enabled = false;
+            });
 
-            cmbColorspace.Enabled = false;
-            cmbHardware.Enabled = false;
-            cmbEncoding.Enabled = false;
-            nudCRF.Enabled = false;
-
-            Thread processThread = new Thread(SooperItProcessThread);
-            processThread.Start();
+            SooperItProcessThread();
         }
 
         private void SooperItProcessThread()
@@ -160,15 +289,19 @@ namespace SooperView
             bool completed = false;
             btnCancel.BeginInvoke(() =>
             {
-                btnCancel.Text = $"Cancel (Progress: 0.0%)";
+                btnCancel.Text = $"Cancel (Progress: {_currentFileIndex + 1} of {_totalFiles} / 0.0%)";
             });
 
 
             string encoder = "libx265";
             int hardware = 0;
             int encoding = 0;
-            int crf = 0;
+            string crf = "";
             int colorspace = 0;
+            int tune = 0;
+            string preset = "";
+            int resolution = 0;
+
             cmbHardware.Invoke(() =>
             {
                 hardware = cmbHardware.SelectedIndex;
@@ -179,11 +312,42 @@ namespace SooperView
             });
             nudCRF.Invoke(() =>
             {
-                crf = (int)nudCRF.Value;
+                switch (cmbHardware.SelectedIndex)
+                {
+                    case 1:
+                        //nvidia
+                        crf = $"-rc constqp -cq:v {(int)nudCRF.Value} -b:v 0";
+                        break;
+                    case 2:
+                        //intel
+                        crf = $"-global_quality {(int)nudCRF.Value}";
+                        break;
+                    case 3:
+                        //amd
+                        crf = $"-rc cqp -qp_i {(int)nudCRF.Value} -qp_p {(int)nudCRF.Value}";
+                        break;
+                    default:
+                        crf = $"-crf {(int)nudCRF.Value}";
+                        break;
+
+                }
             });
             cmbColorspace.Invoke(() =>
             {
                 colorspace = cmbColorspace.SelectedIndex;
+            });
+            cmbTune.Invoke(() =>
+            {
+                tune = cmbTune.SelectedIndex;
+            });
+
+            cmbPreset.Invoke(() =>
+            {
+                preset = (string)cmbPreset.Text;
+            });
+            cmbResolution.Invoke(() =>
+            {
+                resolution = cmbResolution.SelectedIndex;
             });
 
             switch (hardware)
@@ -256,8 +420,52 @@ namespace SooperView
                     pixfmt = "yuv420p10le";
                     break;
             }
+            string tuneString = "";
+            switch (tune)
+            {
+                case 0:
+                    tuneString = "";
+                    break;
+                case 1:
+                    tuneString = "-tune film";
+                    break;
+                case 2:
+                    tuneString = "-tune grain";
+                    break;
+                case 3:
+                    tuneString = "-tune animation";
+                    break;
+                case 4:
+                    tuneString = "-tune stillimage";
+                    break;
+                case 5:
+                    tuneString = "-tune fastdecode";
+                    break;
+                case 6:
+                    tuneString = "-tune zerolatency";
+                    break;
 
-            string processArgs = $"-i \"{txtSourceFileName.Text}\" -i \"{_xmapFilePath}\" -i \"{_ymapFilePath}\" -filter_complex \"[0:v][1:v][2:v]remap\" -c:v {encoder} -crf {crf} -pix_fmt {pixfmt} -y \"{txtSaveAsFileName.Text}\"";
+            }
+
+            string scale = "";
+            switch (resolution)
+            {
+                case 0:
+                    scale = "scale=3840:2160";
+                    break;
+                case 1:
+                    scale = "scale=2560:1440";
+                    break;
+                case 2:
+                    scale = "scale=1920:1080";
+                    break;
+                case 3:
+                    scale = "scale=1280:720";
+                    break;
+            }
+
+
+            string processArgs = $"-i \"{_currentSourceFileName}\" -i \"{_xmapFilePath}\" -i \"{_ymapFilePath}\" -filter_complex \"[0:v][1:v][2:v]remap,{scale}\" -c:v {encoder} {crf} -pix_fmt {pixfmt} {tuneString} -preset {preset} -y \"{_currentDestinationFileName}\"";
 
             _process = new Process
             {
@@ -270,8 +478,6 @@ namespace SooperView
                     CreateNoWindow = true
                 }
             };
-            //libx265
-            //process.OutputDataReceived += SooperItProcessOutputHandler;
             _process.Start();
             //string line = outLine.Data;
             var timeRegex = new Regex(@"time=(\d+):(\d+):(\d+).(\d+)", RegexOptions.Compiled);
@@ -299,12 +505,19 @@ namespace SooperView
                         });
                         btnCancel.BeginInvoke(() =>
                         {
-                            btnCancel.Text = $"Cancel (Progress: {percentage:F2}%)";
+                            btnCancel.Text = $"Cancel (Progress: {_currentFileIndex + 1} of {_totalFiles} / {percentage:F2}%)";
                         });
+                    }
+                    else
+                    {
+                        UpdateLog(line);
                     }
                 }
             }
-            catch { }
+            catch (Exception e)
+            {
+                UpdateLog(e.Message);
+            }
 
             //handle if killed by cancel and not normal ending
             if (_process != null)
@@ -315,14 +528,27 @@ namespace SooperView
                 _process = null;
             }
 
-            btnPickSaveAsFileName.BeginInvoke(() =>
+            if (!completed)
             {
-                btnPickSaveAsFileName.Enabled = true;
-            });
+                _processing = false;
+            }
 
-            btnPickSourceFile.BeginInvoke(() =>
+            if (!_processing)
             {
-                btnPickSourceFile.Enabled = true;
+                ResetUI();
+            }
+        }
+
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            CancelProcessing();
+        }
+
+        private void ResetUI()
+        {
+            lvFiles.BeginInvoke(() =>
+            {
+                lvFiles.Enabled = true;
             });
 
             btnSooperViewIt.BeginInvoke(() =>
@@ -337,14 +563,6 @@ namespace SooperView
             {
                 btnCancel.Enabled = false;
                 btnCancel.Text = "Cancel";
-            });
-            txtSaveAsFileName.BeginInvoke(() =>
-            {
-                txtSaveAsFileName.Enabled = true;
-            });
-            txtSourceFileName.BeginInvoke(() =>
-            {
-                txtSourceFileName.Enabled = true;
             });
 
             cmbColorspace.BeginInvoke(() =>
@@ -367,40 +585,6 @@ namespace SooperView
                 nudCRF.Enabled = true;
             });
 
-            if (completed)
-            {
-                MessageBox.Show("Conversion Completed!");
-            }
-            else
-            {
-                MessageBox.Show("Conversion Cancelled!");
-            }
-        }
-
-        private void btnPickSourceFile_Click(object sender, EventArgs e)
-        {
-            ofdPickSourceFileName.ShowDialog();
-        }
-
-        private void btnPickSaveAsFileName_Click(object sender, EventArgs e)
-        {
-            ofdPickSaveAsFileName.ShowDialog();
-        }
-
-        private void ofdPickSourceFileName_FileOk(object sender, System.ComponentModel.CancelEventArgs e)
-        {
-            txtSourceFileName.Text = ofdPickSourceFileName.FileName;
-            txtSaveAsFileName.Text = Path.Combine(Path.GetDirectoryName(txtSourceFileName.Text), Path.GetFileNameWithoutExtension(txtSourceFileName.Text) + "_SV" + Path.GetExtension(txtSourceFileName.Text));
-        }
-
-        private void ofdPickSaveAsFileName_FileOk(object sender, System.ComponentModel.CancelEventArgs e)
-        {
-            txtSaveAsFileName.Text = ofdPickSaveAsFileName.FileName;
-        }
-
-        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            CancelProcessing();
         }
 
         private void CancelProcessing()
@@ -418,6 +602,145 @@ namespace SooperView
             CancelProcessing();
             btnCancel.Enabled = false;
             btnCancel.Text = "Cancel";
+        }
+
+        private void lvFiles_DragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effect = DragDropEffects.Copy;
+            }
+            else
+            {
+                e.Effect = DragDropEffects.None;
+            }
+        }
+
+        private void lvFiles_DragDrop(object sender, DragEventArgs e)
+        {
+            string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+            foreach (string file in files)
+            {
+                if ((!fileAdded(file)))
+                {
+                    string newFile = Path.Combine(Path.GetDirectoryName(file), Path.GetFileNameWithoutExtension(file) + "_SV" + Path.GetExtension(file));
+                    string[] f = { file, newFile };
+                    ListViewItem lvItem = new ListViewItem(f);
+                    lvFiles.Items.Add(lvItem);
+                }
+            }
+        }
+
+        private bool fileAdded(string file)
+        {
+            foreach (ListViewItem itm in lvFiles.Items)
+            {
+                if (itm.SubItems[0].Text.CompareTo(file) == 0)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void lvFiles_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.KeyCode == Keys.Delete || e.KeyCode == Keys.Back)
+            {
+                var selected = lvFiles.SelectedItems;
+                for (int i = selected.Count - 1; i >= 0; i--)
+                {
+                    lvFiles.Items.RemoveAt(lvFiles.Items.IndexOf(selected[i]));
+                }
+            }
+            else if (e.Control && e.KeyCode == Keys.A)
+            {
+                // Efficiently update the UI
+                lvFiles.BeginUpdate();
+                try
+                {
+                    foreach (ListViewItem item in lvFiles.Items)
+                    {
+                        item.Selected = true;
+                    }
+                }
+                finally
+                {
+                    lvFiles.EndUpdate();
+                }
+            }
+        }
+
+        private void cmbHardware_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            int hardware = 0;
+            if (cmbHardware.SelectedIndex == 0)
+            {
+                if (cmbEncoding.SelectedIndex == 2) //av1
+                {
+                    hardware = 4;
+                }
+                else
+                {
+                    hardware = 0;
+                }
+            }
+            else
+            {
+                hardware |= cmbHardware.SelectedIndex;
+            }
+            UpdatePresets(hardware);
+        }
+
+        private void cmbEncoding_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (cmbEncoding.SelectedIndex == 2) //av1
+            {
+                if (cmbHardware.SelectedIndex == 0) //cpu
+                {
+                    UpdatePresets(4);
+                }
+            }
+            else
+            {
+                UpdatePresets(cmbHardware.SelectedIndex);
+            }
+        }
+
+        private void UpdatePresets(int hardware)
+        {
+            cmbPreset.Items.Clear();
+            foreach (var presetStrings in presets[hardware])
+            {
+                cmbPreset.Items.Add(presetStrings);
+            }
+            SelectDefaultPreset();
+        }
+        private void SelectDefaultPreset()
+        {
+            if (cmbEncoding.SelectedIndex < 0) { return; }
+            if (cmbHardware.SelectedIndex < 0) { return; }
+            string hardwareEncod = $"{cmbHardware.SelectedIndex}{cmbEncoding.SelectedIndex}";
+            cmbPreset.SelectedIndex = presetDefaults[hardwareEncod];
+        }
+
+        private void listView_DrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e)
+        {
+            // Fill the header background with your choice of color
+            e.Graphics.FillRectangle(new SolidBrush(Color.FromArgb(240, 240, 240)), e.Bounds);
+
+            // Draw the header text (using default or custom font/brush)
+            TextRenderer.DrawText(e.Graphics, e.Header.Text, e.Font, e.Bounds, Color.Black, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+        }
+
+        private void listView_DrawItem(object sender, DrawListViewItemEventArgs e)
+        {
+            e.DrawDefault = true;
+        }
+
+        private void listView_DrawSubItem(object sender, DrawListViewSubItemEventArgs e)
+        {
+            e.DrawDefault = true;
         }
     }
 }

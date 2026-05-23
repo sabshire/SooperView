@@ -45,7 +45,7 @@ namespace SooperView
             toolTip.SetToolTip(cmbColorspace, "10bit color or 8bit color");
             toolTip.SetToolTip(cmbEncoding, "The type of encoding to use for the output video.");
             toolTip.SetToolTip(cmbHardware, "CPU or GPU (Nvidia, Intel, or AMD) encoding.\n\nCPU encoding is slower, but produces marginally better quality.\nGPU encoding is much faster.  Choose your brand of GPU");
-            toolTip.SetToolTip(cmbPreset, "Encoding presets, lower numerical value is better.  Slower encoding is better.");
+            toolTip.SetToolTip(cmbPreset, "Encoding presets, higher numerical value is better.  Slower encoding is better.");
             toolTip.SetToolTip(cmbResolution, "The output resolution for the encoded video.");
             toolTip.SetToolTip(cmbTune, "Tune x264 video based on the type of video.\n\nNone - Don't tune the video.\nGrain - preserves the grain structure in old, grainy film material\nFilm - use for high quality movie content; lowers deblocking\nAnimation - good for cartoons; uses higher deblocking and more reference frames\nStill Image - good for slideshow-like content\nFast Decode - allows faster decoding by disabling certain filters\nZero Latency - good for fast encoding and low-latency streaming");
 

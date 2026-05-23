@@ -32,9 +32,24 @@ namespace SooperView
             cmbResolution.SelectedIndex = 0; //4k
             SelectDefaultPreset();
             lblVersion.Text = $"v{Application.ProductVersion}";
+            SetupTooltips();
 
         }
 
+        private void SetupTooltips()
+        {
+            toolTip.ShowAlways = true;
+            toolTip.SetToolTip(lblFileDrop, "Drop files here to process.\n\nYou can select files by clicking on them, and remove them from the queue with the DELETE or BACKSPACE key.\n\n");
+            toolTip.SetToolTip(lvFiles, "Drop files here to process.\n\nYou can select files by clicking on them, and remove them from the queue with the DELETE or BACKSPACE key.\n\n");
+            toolTip.SetToolTip(nudCRF, "Valid values from 0 to 51.\n\n0 is losless encoding, while 51 is the worst possible encoding.\nValue of 17 or 18 is visually losless or very close.");
+            toolTip.SetToolTip(cmbColorspace, "10bit color or 8bit color");
+            toolTip.SetToolTip(cmbEncoding, "The type of encoding to use for the output video.");
+            toolTip.SetToolTip(cmbHardware, "CPU or GPU (Nvidia, Intel, or AMD) encoding.\n\nCPU encoding is slower, but produces marginally better quality.\nGPU encoding is much faster.  Choose your brand of GPU");
+            toolTip.SetToolTip(cmbPreset, "Encoding presets, lower numerical value is better.  Slower encoding is better.");
+            toolTip.SetToolTip(cmbResolution, "The output resolution for the encoded video.");
+            toolTip.SetToolTip(cmbTune, "Tune x264 video based on the type of video.\n\nNone - Don't tune the video.\nGrain - preserves the grain structure in old, grainy film material\nFilm - use for high quality movie content; lowers deblocking\nAnimation - good for cartoons; uses higher deblocking and more reference frames\nStill Image - good for slideshow-like content\nFast Decode - allows faster decoding by disabling certain filters\nZero Latency - good for fast encoding and low-latency streaming");
+
+        }
         private void PopulatePresets()
         {
             //cpu (lib264, lib265)
@@ -618,6 +633,7 @@ namespace SooperView
 
         private void lvFiles_DragDrop(object sender, DragEventArgs e)
         {
+            lblFileDrop.Visible = false;
             string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
             foreach (string file in files)
             {
@@ -651,6 +667,10 @@ namespace SooperView
                 for (int i = selected.Count - 1; i >= 0; i--)
                 {
                     lvFiles.Items.RemoveAt(lvFiles.Items.IndexOf(selected[i]));
+                }
+                if (lvFiles.Items.Count == 0)
+                {
+                    lblFileDrop.Visible = true;
                 }
             }
             else if (e.Control && e.KeyCode == Keys.A)
@@ -694,6 +714,17 @@ namespace SooperView
 
         private void cmbEncoding_SelectedIndexChanged(object sender, EventArgs e)
         {
+            //tune is only available for x264
+            if (cmbEncoding.SelectedIndex != 0)
+            {
+                cmbTune.SelectedIndex = 0;
+                cmbTune.Enabled = false;
+            }
+            else
+            {
+                cmbTune.Enabled = true;
+            }
+
             if (cmbEncoding.SelectedIndex == 2) //av1
             {
                 if (cmbHardware.SelectedIndex == 0) //cpu

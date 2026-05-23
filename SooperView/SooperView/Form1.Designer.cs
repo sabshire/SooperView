@@ -28,6 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
+            components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(Form1));
             flowLayoutPanel1 = new FlowLayoutPanel();
             btnSooperViewIt = new Button();
@@ -55,6 +56,8 @@
             columnHeader2 = new ColumnHeader();
             lvLog = new ListView();
             columnHeader3 = new ColumnHeader();
+            lblFileDrop = new Label();
+            toolTip = new ToolTip(components);
             flowLayoutPanel1.SuspendLayout();
             flowLayoutPanel2.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)nudCRF).BeginInit();
@@ -331,11 +334,26 @@
             columnHeader3.Text = "Log";
             columnHeader3.Width = 690;
             // 
+            // lblFileDrop
+            // 
+            lblFileDrop.AllowDrop = true;
+            lblFileDrop.BackColor = SystemColors.Window;
+            lblFileDrop.BorderStyle = BorderStyle.FixedSingle;
+            lblFileDrop.Location = new Point(12, 20);
+            lblFileDrop.Name = "lblFileDrop";
+            lblFileDrop.Size = new Size(690, 158);
+            lblFileDrop.TabIndex = 7;
+            lblFileDrop.Text = "DROP FILES HERE";
+            lblFileDrop.TextAlign = ContentAlignment.MiddleCenter;
+            lblFileDrop.DragDrop += lvFiles_DragDrop;
+            lblFileDrop.DragEnter += lvFiles_DragEnter;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(711, 573);
+            Controls.Add(lblFileDrop);
             Controls.Add(lvLog);
             Controls.Add(lvFiles);
             Controls.Add(lblVersion);
@@ -384,5 +402,7 @@
         private ComboBox cmbResolution;
         private ListView lvLog;
         private ColumnHeader columnHeader3;
+        private Label lblFileDrop;
+        private ToolTip toolTip;
     }
 }

@@ -2,6 +2,7 @@ using Newtonsoft.Json;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.Intrinsics.X86;
 using System.Text.RegularExpressions;
 
 namespace SooperView
@@ -17,6 +18,7 @@ namespace SooperView
         private int _currentFileIndex = -1;
         private int _totalFiles = 0;
         private bool _processing = false;
+        private bool[] availableHardware = [true, true, true, true];
 
         private Dictionary<int, string[]> presets = new Dictionary<int, string[]>();
         private Dictionary<string, int> presetDefaults = new Dictionary<string, int>();
@@ -33,7 +35,6 @@ namespace SooperView
             SelectDefaultPreset();
             lblVersion.Text = $"v{Application.ProductVersion}";
             SetupTooltips();
-
         }
 
         private void SetupTooltips()
@@ -105,16 +106,9 @@ namespace SooperView
                 {
                     StartNextSooperItProcess();
 
-                    if (_processing)
+                    if (_currentFileIndex + 1 >= _totalFiles)
                     {
-                        if (_currentFileIndex + 1 < _totalFiles)
-                        {
-                            StartNextSooperItProcess();
-                        }
-                        else
-                        {
-                            _processing = false;
-                        }
+                        _processing = false;
                     }
                 }
 
@@ -542,6 +536,14 @@ namespace SooperView
                 _process.Close();
                 _process = null;
             }
+            else
+            {
+                //check if complete
+                if (_currentFileIndex + 1 > _totalFiles)
+                {
+                    completed = true;
+                }
+            }
 
             if (!completed)
             {
@@ -694,21 +696,25 @@ namespace SooperView
         private void cmbHardware_SelectedIndexChanged(object sender, EventArgs e)
         {
             int hardware = 0;
-            if (cmbHardware.SelectedIndex == 0)
+            if (availableHardware[hardware])
             {
-                if (cmbEncoding.SelectedIndex == 2) //av1
+                if (cmbHardware.SelectedIndex == 0)
                 {
-                    hardware = 4;
+                    if (cmbEncoding.SelectedIndex == 2) //av1
+                    {
+                        hardware = 4;
+                    }
+                    else
+                    {
+                        hardware = 0;
+                    }
                 }
                 else
                 {
-                    hardware = 0;
+                    hardware = cmbHardware.SelectedIndex;
                 }
             }
-            else
-            {
-                hardware |= cmbHardware.SelectedIndex;
-            }
+
             UpdatePresets(hardware);
         }
 

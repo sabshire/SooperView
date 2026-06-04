@@ -27,7 +27,27 @@ namespace SooperView
             InitializeComponent();
             PopulatePresets();
             PopulatePresetDefaults();
-            cmbHardware.SelectedIndex = 0; //cpu
+            var hardwareDetector = new HardwareDetector();
+            if (hardwareDetector.DetectNVIDIAGPUs())
+            {
+                cmbHardware.SelectedIndex = 1; //nvidia
+
+            }
+            else if (hardwareDetector.DetectAMDGPUs())
+            {
+                cmbHardware.SelectedIndex = 2; //amd
+
+            }
+            else if (hardwareDetector.DetectIntelGPUs())
+            {
+                cmbHardware.SelectedIndex = 3; //intel
+
+            }
+            else
+            {
+                cmbHardware.SelectedIndex = 0; //cpu
+
+            }
             cmbEncoding.SelectedIndex = 1; //h265
             cmbColorspace.SelectedIndex = 1; //10-bit
             cmbTune.SelectedIndex = 0; //none
@@ -35,6 +55,7 @@ namespace SooperView
             SelectDefaultPreset();
             lblVersion.Text = $"v{Application.ProductVersion}";
             SetupTooltips();
+
         }
 
         private void SetupTooltips()

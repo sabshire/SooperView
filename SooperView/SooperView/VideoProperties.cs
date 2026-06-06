@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace SooperView
 {
-    internal class VideoProperties
+    public class VideoProperties
     {
         private double? _duration;
 

@@ -1,686 +1,163 @@
-using Newtonsoft.Json;
-using System.Diagnostics;
-using System.IO;
 using System.Reflection;
-using System.Runtime.Intrinsics.X86;
-using System.Text.RegularExpressions;
 
 namespace SooperView
 {
     public partial class Form1 : Form
     {
-        private string _xmapFilePath = Path.Combine(Path.GetTempPath(), "xmap.pgm");
-        private string _ymapFilePath = Path.Combine(Path.GetTempPath(), "ymap.pgm");
-        private double _videoDuration;
-        private Process _process;
-        private string _currentSourceFileName;
-        private string _currentDestinationFileName;
-        private int _currentFileIndex = -1;
-        private int _totalFiles = 0;
-        private bool _processing = false;
-        private bool[] availableHardware = [true, true, true, true];
+        // ── Process logic ──────────────────────────────────────────────────────
+        private readonly VideoProcessor _processor = new();
 
-        private Dictionary<int, string[]> presets = new Dictionary<int, string[]>();
-        private Dictionary<string, int> presetDefaults = new Dictionary<string, int>();
+        // ── Preset tables (UI-only configuration data) ─────────────────────────
+        private readonly Dictionary<int, string[]> _presets = new();
+        private readonly Dictionary<string, int>   _presetDefaults = new();
+
         public Form1()
         {
             InitializeComponent();
+
             PopulatePresets();
             PopulatePresetDefaults();
-            var hardwareDetector = new HardwareDetector();
-            if (hardwareDetector.DetectNVIDIAGPUs())
-            {
-                cmbHardware.SelectedIndex = 1; //nvidia
+            SelectHardwareDefault();
 
-            }
-            else if (hardwareDetector.DetectAMDGPUs())
-            {
-                cmbHardware.SelectedIndex = 2; //amd
-
-            }
-            else if (hardwareDetector.DetectIntelGPUs())
-            {
-                cmbHardware.SelectedIndex = 3; //intel
-
-            }
-            else
-            {
-                cmbHardware.SelectedIndex = 0; //cpu
-
-            }
-            cmbEncoding.SelectedIndex = 1; //h265
-            cmbColorspace.SelectedIndex = 1; //10-bit
-            cmbTune.SelectedIndex = 0; //none
-            cmbResolution.SelectedIndex = 0; //4k
+            cmbEncoding.SelectedIndex   = 1; // h265
+            cmbColorspace.SelectedIndex = 1; // 10-bit
+            cmbTune.SelectedIndex       = 0; // none
+            cmbResolution.SelectedIndex = 0; // 4K
             SelectDefaultPreset();
+
             lblVersion.Text = $"v{Application.ProductVersion}";
             SetupTooltips();
 
+            // Wire processor events to UI updates
+            _processor.ProgressChanged    += OnProgressChanged;
+            _processor.LogMessage         += (_, msg) => UpdateLog(msg);
+            _processor.ProcessingStarted  += (_, _)   => SetProcessingState(true);
+            _processor.ProcessingFinished += (_, _)   => SetProcessingState(false);
         }
 
-        private void SetupTooltips()
+        // ── Hardware auto-select ───────────────────────────────────────────────
+
+        private void SelectHardwareDefault()
         {
-            toolTip.ShowAlways = true;
-            toolTip.SetToolTip(lblFileDrop, "Drop files here to process.\n\nYou can select files by clicking on them, and remove them from the queue with the DELETE or BACKSPACE key.\n\n");
-            toolTip.SetToolTip(lvFiles, "Drop files here to process.\n\nYou can select files by clicking on them, and remove them from the queue with the DELETE or BACKSPACE key.\n\n");
-            toolTip.SetToolTip(nudCRF, "Valid values from 0 to 51.\n\n0 is losless encoding, while 51 is the worst possible encoding.\nValue of 17 or 18 is visually losless or very close.");
-            toolTip.SetToolTip(cmbColorspace, "10bit color or 8bit color");
-            toolTip.SetToolTip(cmbEncoding, "The type of encoding to use for the output video.");
-            toolTip.SetToolTip(cmbHardware, "CPU or GPU (Nvidia, Intel, or AMD) encoding.\n\nCPU encoding is slower, but produces marginally better quality.\nGPU encoding is much faster.  Choose your brand of GPU");
-            toolTip.SetToolTip(cmbPreset, "Encoding presets, higher numerical value is better.  Slower encoding is better.");
-            toolTip.SetToolTip(cmbResolution, "The output resolution for the encoded video.");
-            toolTip.SetToolTip(cmbTune, "Tune x264 video based on the type of video.\n\nNone - Don't tune the video.\nGrain - preserves the grain structure in old, grainy film material\nFilm - use for high quality movie content; lowers deblocking\nAnimation - good for cartoons; uses higher deblocking and more reference frames\nStill Image - good for slideshow-like content\nFast Decode - allows faster decoding by disabling certain filters\nZero Latency - good for fast encoding and low-latency streaming");
-
-        }
-        private void PopulatePresets()
-        {
-            //cpu (lib264, lib265)
-            presets.Add(0, new string[] { "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo" });
-            //nvidia
-            presets.Add(1, new string[] { "p1", "p2", "p3", "p4", "p5", "p6", "p7" });
-            //intel
-            presets.Add(2, new string[] { "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow" });
-            //amd
-            presets.Add(3, new string[] { "quality", "balance", "speed" });
-            //cpu (av1)
-            presets.Add(4, new string[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" });
-
+            var detector = new HardwareDetector();
+            cmbHardware.SelectedIndex =
+                detector.DetectNVIDIAGPUs()  ? 1 :
+                detector.DetectAMDGPUs()     ? 2 :
+                detector.DetectIntelGPUs()   ? 3 : 0;
         }
 
-        private void PopulatePresetDefaults()
-        {
-            //cpu libx264
-            presetDefaults.Add("00", 5);
-            //cpu libx265
-            presetDefaults.Add("01", 5);
-            //cpu av1
-            presetDefaults.Add("02", 6);
-            //nvidia x264
-            presetDefaults.Add("10", 3);
-            //nvidia x265
-            presetDefaults.Add("11", 3);
-            //nvidia av1
-            presetDefaults.Add("12", 3);
-            //intel x264
-            presetDefaults.Add("20", 3);
-            //intel x265
-            presetDefaults.Add("21", 3);
-            //intel av1
-            presetDefaults.Add("22", 3);
-            //amd x264
-            presetDefaults.Add("30", 1);
-            //amd x265
-            presetDefaults.Add("31", 1);
-            //amd av1
-            presetDefaults.Add("32", 1);
-        }
+        // ── Button handlers ────────────────────────────────────────────────────
 
         private void btnSooperViewIt_Click(object sender, EventArgs e)
         {
             ClearLog();
-            _totalFiles = lvFiles.Items.Count;
-            _currentFileIndex = -1;
-            Task.Run(() =>
-            {
-                _processing = true;
-                while (_processing)
-                {
-                    StartNextSooperItProcess();
 
-                    if (_currentFileIndex + 1 >= _totalFiles)
-                    {
-                        _processing = false;
-                    }
-                }
+            var files = lvFiles.Items
+                .Cast<ListViewItem>()
+                .Select(i => (Source: i.SubItems[0].Text, Destination: i.SubItems[1].Text))
+                .ToList();
 
-                ResetUI();
-            });
-        }
+            if (files.Count == 0) return;
 
-        private void StartNextSooperItProcess()
-        {
-            _currentFileIndex++;
-            lvFiles.Invoke(() =>
-            {
-                ListViewItem item = lvFiles.Items[_currentFileIndex];
-                _currentSourceFileName = item.SubItems[0].Text;
-                _currentDestinationFileName = item.SubItems[1].Text;
-            });
-
-            if (File.Exists(_currentSourceFileName))
-            {
-                var vidProperties = GetVideoProperties(_currentSourceFileName);
-                if (vidProperties != null)
-                {
-                    if ((vidProperties.Height * 4 / 3) == vidProperties.Width)
-                    {
-                        CreateRemapFiles(vidProperties);
-                        if (File.Exists(_xmapFilePath) && File.Exists(_ymapFilePath))
-                        {
-                            this._videoDuration = vidProperties.Duration.HasValue ? vidProperties.Duration.Value : 0;
-                            SooperItProcess();
-                        }
-                        else
-                        {
-                            UpdateLog("There was a problem generating the remap files!");
-                        }
-                    }
-                    else
-                    {
-                        UpdateLog($"{_currentSourceFileName} is not a 4:3 video file!");
-                    }
-                }
-                else
-                {
-                    UpdateLog($"{_currentSourceFileName} is not a 4:3 video file!");
-                }
-            }
-            else
-            {
-                UpdateLog($"{_currentSourceFileName} doesn't exist!");
-            }
-        }
-
-        private void ClearLog()
-        {
-            lvLog.Invoke(() =>
-            {
-                lvLog.Items.Clear();
-            });
-        }
-        private void UpdateLog(string log)
-        {
-            lvLog.Invoke(() =>
-            {
-                lvLog.Items.Add(log);
-            });
-        }
-
-        /* 
-         * Superview Algorithm
-         * https://intofpv.com/t-using-free-command-line-sorcery-to-fake-superview
-        */
-        private double DerpIt(double tx, int targetWidth, int srcWidth)
-        {
-            double x = (tx / targetWidth - 0.5) * 2; // -1 -> 1
-            double sx = tx - (targetWidth - srcWidth) / 2.0;
-            double offset = Math.Pow(x, 2) * (x < 0 ? -1 : 1) * ((targetWidth - srcWidth) / 2.0);
-            return sx - offset;
-        }
-
-        private VideoProperties? GetVideoProperties(string filePath)
-        {
-            //ffprobe -v error -show_entries stream=width,height,duration -of json DJI_0669.MP4
-            //filePath = @"C:\Users\Stacey Abshire\Videos\djio3\2025\01\11\DJI_0669.mp4";
-            var process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "ffmpeg\\ffprobe",
-                    Arguments = $"-i \"{filePath}\" -show_entries stream=width,height,duration -of json",
-                    RedirectStandardOutput = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-
-            process.Start();
-            string result = process.StandardOutput.ReadToEnd();
-            VideoInfo? vidInfo = JsonConvert.DeserializeObject<VideoInfo>(result);
-            VideoProperties? properties = null;
-            if (vidInfo != null)
-            {
-                if (vidInfo.StreamProperties != null)
-                {
-                    if (vidInfo.StreamProperties.Count > 0)
-                    {
-                        properties = vidInfo.StreamProperties[0];
-                    }
-                }
-            }
-            process.WaitForExit();
-            process.Close();
-            process = null;
-            return properties;
-
-        }
-        private void CreateRemapFiles(VideoProperties vidProperties)
-        {
-            int sourceWidth = vidProperties.Width;
-            int sourceHeight = vidProperties.Height;
-            int targetWidth = vidProperties.Height * 16 / 9;
-
-            using (StreamWriter xmap = new StreamWriter(_xmapFilePath))
-            {
-                xmap.WriteLine($"P2 {targetWidth} {sourceHeight} 65535");
-
-                for (int y = 0; y < sourceHeight; y++)
-                {
-                    for (int x = 0; x < targetWidth; x++)
-                    {
-                        double fudgeit = DerpIt(x, targetWidth, sourceWidth);
-                        xmap.Write($"{(int)fudgeit} ");
-                    }
-                    xmap.WriteLine();
-                }
-            }
-
-            using (StreamWriter ymap = new StreamWriter(_ymapFilePath))
-            {
-                ymap.WriteLine($"P2 {targetWidth} {sourceHeight} 65535");
-
-                for (int y = 0; y < sourceHeight; y++)
-                {
-                    for (int x = 0; x < targetWidth; x++)
-                    {
-                        ymap.Write($"{y} ");
-                    }
-                    ymap.WriteLine();
-                }
-            }
-        }
-
-        private void SooperItProcess()
-        {
-            btnSooperViewIt.Invoke(() =>
-            {
-                btnSooperViewIt.Enabled = false;
-            });
-            btnCancel.Invoke(() =>
-            {
-                btnCancel.Enabled = true;
-            });
-            lvFiles.Invoke(() =>
-            {
-                lvFiles.Enabled = false;
-            });
-            cmbColorspace.Invoke(() =>
-            {
-                cmbColorspace.Enabled = false;
-            });
-            cmbHardware.Invoke(() =>
-            {
-                cmbHardware.Enabled = false;
-            });
-            cmbEncoding.Invoke(() =>
-            {
-                cmbEncoding.Enabled = false;
-            });
-            nudCRF.Invoke(() =>
-            {
-                nudCRF.Enabled = false;
-            });
-
-            SooperItProcessThread();
-        }
-
-        private void SooperItProcessThread()
-        {
-            bool completed = false;
-            btnCancel.BeginInvoke(() =>
-            {
-                btnCancel.Text = $"Cancel (Progress: {_currentFileIndex + 1} of {_totalFiles} / 0.0%)";
-            });
-
-
-            string encoder = "libx265";
-            int hardware = 0;
-            int encoding = 0;
-            string crf = "";
-            int colorspace = 0;
-            int tune = 0;
-            string preset = "";
-            int resolution = 0;
-
-            cmbHardware.Invoke(() =>
-            {
-                hardware = cmbHardware.SelectedIndex;
-            });
-            cmbEncoding.Invoke(() =>
-            {
-                encoding = cmbEncoding.SelectedIndex;
-            });
-            nudCRF.Invoke(() =>
-            {
-                switch (cmbHardware.SelectedIndex)
-                {
-                    case 1:
-                        //nvidia
-                        crf = $"-rc constqp -cq:v {(int)nudCRF.Value} -b:v 0";
-                        break;
-                    case 2:
-                        //intel
-                        crf = $"-global_quality {(int)nudCRF.Value}";
-                        break;
-                    case 3:
-                        //amd
-                        crf = $"-rc cqp -qp_i {(int)nudCRF.Value} -qp_p {(int)nudCRF.Value}";
-                        break;
-                    default:
-                        crf = $"-crf {(int)nudCRF.Value}";
-                        break;
-
-                }
-            });
-            cmbColorspace.Invoke(() =>
-            {
-                colorspace = cmbColorspace.SelectedIndex;
-            });
-            cmbTune.Invoke(() =>
-            {
-                tune = cmbTune.SelectedIndex;
-            });
-
-            cmbPreset.Invoke(() =>
-            {
-                preset = (string)cmbPreset.Text;
-            });
-            cmbResolution.Invoke(() =>
-            {
-                resolution = cmbResolution.SelectedIndex;
-            });
-
-            switch (hardware)
-            {
-                case 0: //CPU
-                    switch (encoding)
-                    {
-                        case 0: //h624
-                            encoder = "libx264";
-                            break;
-                        case 1: //h265
-                            encoder = "libx265";
-                            break;
-                        case 2: //av1
-                            encoder = "libsvtav1";
-                            break;
-                    }
-                    break;
-                case 1: //Nvidia
-                    switch (encoding)
-                    {
-                        case 0: //h624
-                            encoder = "h264_nvenc";
-                            break;
-                        case 1: //h265
-                            encoder = "hevc_nvenc";
-                            break;
-                        case 2: //av1
-                            encoder = "av1_nvenc";
-                            break;
-                    }
-                    break;
-                case 2: //Intel
-                    switch (encoding)
-                    {
-                        case 0: //h624
-                            encoder = "h264_qsv";
-                            break;
-                        case 1: //h265
-                            encoder = "hevc_qsv";
-                            break;
-                        case 2: //av1
-                            encoder = "av1_qsv";
-                            break;
-                    }
-                    break;
-                case 3: //AMD
-                    switch (encoding)
-                    {
-                        case 0: //h624
-                            encoder = "h264_amf";
-                            break;
-                        case 1: //h265
-                            encoder = "hevc_amf";
-                            break;
-                        case 2: //av1
-                            encoder = "av1_amf";
-                            break;
-                    }
-                    break;
-            }
-
-            string pixfmt = "yuv420p10le";
-            switch (colorspace)
-            {
-                case 0: // 8-bit
-                    pixfmt = "yuv420p";
-                    break;
-                case 1: //10-bit
-                    pixfmt = "yuv420p10le";
-                    break;
-            }
-            string tuneString = "";
-            switch (tune)
-            {
-                case 0:
-                    tuneString = "";
-                    break;
-                case 1:
-                    tuneString = "-tune film";
-                    break;
-                case 2:
-                    tuneString = "-tune grain";
-                    break;
-                case 3:
-                    tuneString = "-tune animation";
-                    break;
-                case 4:
-                    tuneString = "-tune stillimage";
-                    break;
-                case 5:
-                    tuneString = "-tune fastdecode";
-                    break;
-                case 6:
-                    tuneString = "-tune zerolatency";
-                    break;
-
-            }
-
-            string scale = "";
-            switch (resolution)
-            {
-                case 0:
-                    scale = "scale=3840:2160";
-                    break;
-                case 1:
-                    scale = "scale=2560:1440";
-                    break;
-                case 2:
-                    scale = "scale=1920:1080";
-                    break;
-                case 3:
-                    scale = "scale=1280:720";
-                    break;
-            }
-
-
-            string processArgs = $"-i \"{_currentSourceFileName}\" -i \"{_xmapFilePath}\" -i \"{_ymapFilePath}\" -filter_complex \"[0:v][1:v][2:v]remap,{scale}\" -c:v {encoder} {crf} -pix_fmt {pixfmt} {tuneString} -preset {preset} -y \"{_currentDestinationFileName}\"";
-
-            _process = new Process
-            {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = "ffmpeg\\ffmpeg",
-                    Arguments = processArgs,
-                    RedirectStandardError = true,
-                    UseShellExecute = false,
-                    CreateNoWindow = true
-                }
-            };
-            _process.Start();
-            //string line = outLine.Data;
-            var timeRegex = new Regex(@"time=(\d+):(\d+):(\d+).(\d+)", RegexOptions.Compiled);
-            string line;
-            try
-            {
-                while ((line = _process.StandardError.ReadLine()) != null)
-                {
-                    // Parse the "time=" field to get the current progress
-                    var match = timeRegex.Match(line);
-                    if (match.Success)
-                    {
-                        // Convert time (hours, minutes, seconds, milliseconds) to seconds
-                        double hours = double.Parse(match.Groups[1].Value);
-                        double minutes = double.Parse(match.Groups[2].Value);
-                        double seconds = double.Parse(match.Groups[3].Value);
-                        double milliseconds = double.Parse(match.Groups[4].Value);
-
-                        double currentProgress = hours * 3600 + minutes * 60 + seconds + milliseconds / 100;
-                        float percentage = (float)(currentProgress / _videoDuration * 100);
-                        prgProcess.BeginInvoke(() =>
-                        {
-                            prgProcess.Value = (int)percentage;
-                            prgProcess.Update();
-                        });
-                        btnCancel.BeginInvoke(() =>
-                        {
-                            btnCancel.Text = $"Cancel (Progress: {_currentFileIndex + 1} of {_totalFiles} / {percentage:F2}%)";
-                        });
-                    }
-                    else
-                    {
-                        UpdateLog(line);
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                UpdateLog(e.Message);
-            }
-
-            //handle if killed by cancel and not normal ending
-            if (_process != null)
-            {
-                completed = true;
-                _process.WaitForExit();
-                _process.Close();
-                _process = null;
-            }
-            else
-            {
-                //check if complete
-                if (_currentFileIndex + 1 > _totalFiles)
-                {
-                    completed = true;
-                }
-            }
-
-            if (!completed)
-            {
-                _processing = false;
-            }
-
-            if (!_processing)
-            {
-                ResetUI();
-            }
-        }
-
-        private void Form1_FormClosed(object sender, FormClosedEventArgs e)
-        {
-            CancelProcessing();
-        }
-
-        private void ResetUI()
-        {
-            lvFiles.BeginInvoke(() =>
-            {
-                lvFiles.Enabled = true;
-            });
-
-            btnSooperViewIt.BeginInvoke(() =>
-            {
-                btnSooperViewIt.Enabled = true;
-            });
-            prgProcess.BeginInvoke(() =>
-            {
-                prgProcess.Value = 0;
-            });
-            btnCancel.BeginInvoke(() =>
-            {
-                btnCancel.Enabled = false;
-                btnCancel.Text = "Cancel";
-            });
-
-            cmbColorspace.BeginInvoke(() =>
-            {
-                cmbColorspace.Enabled = true;
-            });
-
-            cmbHardware.BeginInvoke(() =>
-            {
-                cmbHardware.Enabled = true;
-            });
-
-            cmbEncoding.BeginInvoke(() =>
-            {
-                cmbEncoding.Enabled = true;
-            });
-
-            nudCRF.BeginInvoke(() =>
-            {
-                nudCRF.Enabled = true;
-            });
-
-        }
-
-        private void CancelProcessing()
-        {
-            if (_process != null)
-            {
-                _process.Kill();
-                _process.Close();
-                _process = null;
-            }
+            _processor.StartAsync(files, ReadSettings());
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
-            CancelProcessing();
+            _processor.Cancel();
             btnCancel.Enabled = false;
-            btnCancel.Text = "Cancel";
+            btnCancel.Text    = "Cancel";
         }
 
-        private void lvFiles_DragEnter(object sender, DragEventArgs e)
+        private void Form1_FormClosed(object sender, FormClosedEventArgs e) =>
+            _processor.Cancel();
+
+        // ── Settings snapshot ──────────────────────────────────────────────────
+
+        private EncoderSettings ReadSettings() => new()
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            Hardware   = cmbHardware.SelectedIndex,
+            Encoding   = cmbEncoding.SelectedIndex,
+            Colorspace = cmbColorspace.SelectedIndex,
+            Tune       = cmbTune.SelectedIndex,
+            Resolution = cmbResolution.SelectedIndex,
+            CRF        = (int)nudCRF.Value,
+            Preset     = cmbPreset.Text,
+        };
+
+        // ── Processor event handlers ───────────────────────────────────────────
+
+        private void OnProgressChanged(object? sender, ProgressEventArgs e)
+        {
+            prgProcess.BeginInvoke(() =>
             {
-                e.Effect = DragDropEffects.Copy;
-            }
-            else
+                prgProcess.Value = (int)e.Percentage;
+                prgProcess.Update();
+            });
+            btnCancel.BeginInvoke(() =>
             {
-                e.Effect = DragDropEffects.None;
-            }
+                btnCancel.Text = $"Cancel (Progress: {e.CurrentFile} of {e.TotalFiles} / {e.Percentage:F2}%)";
+            });
         }
+
+        // ── UI state helpers ───────────────────────────────────────────────────
+
+        private void SetProcessingState(bool processing)
+        {
+            bool enable = !processing;
+            btnSooperViewIt.BeginInvoke(() => btnSooperViewIt.Enabled = enable);
+            btnCancel.BeginInvoke(() =>
+            {
+                btnCancel.Enabled = processing;
+                if (!processing) btnCancel.Text = "Cancel";
+            });
+
+            lvFiles.BeginInvoke(()       => lvFiles.Enabled      = enable);
+            cmbColorspace.BeginInvoke(() => cmbColorspace.Enabled = enable);
+            cmbHardware.BeginInvoke(()   => cmbHardware.Enabled  = enable);
+            cmbTune.BeginInvoke(() => cmbTune.Enabled = enable && cmbEncoding.SelectedIndex == 0 && cmbHardware.SelectedIndex == 0);
+            cmbResolution.BeginInvoke(() => cmbResolution.Enabled = enable);
+            cmbPreset.BeginInvoke(() => cmbPreset.Enabled = enable);
+            cmbEncoding.BeginInvoke(() => cmbEncoding.Enabled = enable);
+            nudCRF.BeginInvoke(() => nudCRF.Enabled = enable);
+
+            if (!processing)
+                prgProcess.BeginInvoke(() => prgProcess.Value = 0);
+        }
+
+        private void ClearLog() =>
+            lvLog.Invoke(() => lvLog.Items.Clear());
+
+        private void UpdateLog(string message) =>
+            lvLog.Invoke(() => lvLog.Items.Add(message));
+
+        // ── File list interactions ─────────────────────────────────────────────
+
+        private void lvFiles_DragEnter(object sender, DragEventArgs e) =>
+            e.Effect = e.Data?.GetDataPresent(DataFormats.FileDrop) == true
+                ? DragDropEffects.Copy
+                : DragDropEffects.None;
 
         private void lvFiles_DragDrop(object sender, DragEventArgs e)
         {
             lblFileDrop.Visible = false;
-            string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
+            string[] files = (string[])e.Data!.GetData(DataFormats.FileDrop)!;
             foreach (string file in files)
             {
-                if ((!fileAdded(file)))
+                if (!FileAlreadyAdded(file))
                 {
-                    string newFile = Path.Combine(Path.GetDirectoryName(file), Path.GetFileNameWithoutExtension(file) + "_SV" + Path.GetExtension(file));
-                    string[] f = { file, newFile };
-                    ListViewItem lvItem = new ListViewItem(f);
-                    lvFiles.Items.Add(lvItem);
+                    string dest = Path.Combine(
+                        Path.GetDirectoryName(file)!,
+                        Path.GetFileNameWithoutExtension(file) + "_SV" + Path.GetExtension(file));
+
+                    lvFiles.Items.Add(new ListViewItem(new[] { file, dest }));
                 }
             }
         }
 
-        private bool fileAdded(string file)
-        {
-            foreach (ListViewItem itm in lvFiles.Items)
-            {
-                if (itm.SubItems[0].Text.CompareTo(file) == 0)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
+        private bool FileAlreadyAdded(string file) =>
+            lvFiles.Items.Cast<ListViewItem>()
+                   .Any(i => i.SubItems[0].Text == file);
 
         private void lvFiles_KeyDown(object sender, KeyEventArgs e)
         {
@@ -688,117 +165,108 @@ namespace SooperView
             {
                 var selected = lvFiles.SelectedItems;
                 for (int i = selected.Count - 1; i >= 0; i--)
-                {
                     lvFiles.Items.RemoveAt(lvFiles.Items.IndexOf(selected[i]));
-                }
-                if (lvFiles.Items.Count == 0)
-                {
-                    lblFileDrop.Visible = true;
-                }
+
+                lblFileDrop.Visible = lvFiles.Items.Count == 0;
             }
             else if (e.Control && e.KeyCode == Keys.A)
             {
-                // Efficiently update the UI
                 lvFiles.BeginUpdate();
-                try
-                {
-                    foreach (ListViewItem item in lvFiles.Items)
-                    {
-                        item.Selected = true;
-                    }
-                }
-                finally
-                {
-                    lvFiles.EndUpdate();
-                }
+                try   { foreach (ListViewItem item in lvFiles.Items) item.Selected = true; }
+                finally { lvFiles.EndUpdate(); }
             }
         }
 
+        // ── Preset management ──────────────────────────────────────────────────
+
+        private void PopulatePresets()
+        {
+            _presets[0] = new[] { "ultrafast","superfast","veryfast","faster","fast","medium","slow","slower","veryslow","placebo" };
+            _presets[1] = new[] { "p1","p2","p3","p4","p5","p6","p7" };
+            _presets[2] = new[] { "veryfast","faster","fast","medium","slow","slower","veryslow" };
+            _presets[3] = new[] { "quality","balance","speed" };
+            _presets[4] = new[] { "0","1","2","3","4","5","6","7","8","9","10","11","12" };
+        }
+
+        private void PopulatePresetDefaults()
+        {
+            _presetDefaults["00"] = 5; _presetDefaults["01"] = 5; _presetDefaults["02"] = 6;
+            _presetDefaults["10"] = 3; _presetDefaults["11"] = 3; _presetDefaults["12"] = 3;
+            _presetDefaults["20"] = 3; _presetDefaults["21"] = 3; _presetDefaults["22"] = 3;
+            _presetDefaults["30"] = 1; _presetDefaults["31"] = 1; _presetDefaults["32"] = 1;
+        }
+
+        private void UpdatePresets(int hardwareKey)
+        {
+            cmbPreset.Items.Clear();
+            foreach (var p in _presets[hardwareKey])
+                cmbPreset.Items.Add(p);
+            SelectDefaultPreset();
+        }
+
+        private void SelectDefaultPreset()
+        {
+            if (cmbEncoding.SelectedIndex < 0 || cmbHardware.SelectedIndex < 0) return;
+            string key = $"{cmbHardware.SelectedIndex}{cmbEncoding.SelectedIndex}";
+            if (_presetDefaults.TryGetValue(key, out int idx))
+                cmbPreset.SelectedIndex = idx;
+        }
+
+        // ── ComboBox change handlers ───────────────────────────────────────────
+
         private void cmbHardware_SelectedIndexChanged(object sender, EventArgs e)
         {
-            int hardware = 0;
-            if (availableHardware[hardware])
-            {
-                if (cmbHardware.SelectedIndex == 0)
-                {
-                    if (cmbEncoding.SelectedIndex == 2) //av1
-                    {
-                        hardware = 4;
-                    }
-                    else
-                    {
-                        hardware = 0;
-                    }
-                }
-                else
-                {
-                    hardware = cmbHardware.SelectedIndex;
-                }
-            }
+            bool isTuneAvailable = cmbEncoding.SelectedIndex == 0 && cmbHardware.SelectedIndex == 0;
+            cmbTune.Enabled = isTuneAvailable;
+            if (!isTuneAvailable) cmbTune.SelectedIndex = 0;
 
-            UpdatePresets(hardware);
+            int key = cmbHardware.SelectedIndex == 0 && cmbEncoding.SelectedIndex == 2
+                ? 4
+                : cmbHardware.SelectedIndex;
+            UpdatePresets(key);
         }
 
         private void cmbEncoding_SelectedIndexChanged(object sender, EventArgs e)
         {
-            //tune is only available for x264
-            if (cmbEncoding.SelectedIndex != 0)
-            {
-                cmbTune.SelectedIndex = 0;
-                cmbTune.Enabled = false;
-            }
-            else
-            {
-                cmbTune.Enabled = true;
-            }
+            bool isTuneAvailable = cmbEncoding.SelectedIndex == 0 && cmbHardware.SelectedIndex == 0;
+            cmbTune.Enabled = isTuneAvailable;
+            if (!isTuneAvailable) cmbTune.SelectedIndex = 0;
 
-            if (cmbEncoding.SelectedIndex == 2) //av1
-            {
-                if (cmbHardware.SelectedIndex == 0) //cpu
-                {
-                    UpdatePresets(4);
-                }
-            }
-            else
-            {
-                UpdatePresets(cmbHardware.SelectedIndex);
-            }
+            int key = cmbEncoding.SelectedIndex == 2 && cmbHardware.SelectedIndex == 0
+                ? 4
+                : cmbHardware.SelectedIndex;
+            UpdatePresets(key);
         }
 
-        private void UpdatePresets(int hardware)
-        {
-            cmbPreset.Items.Clear();
-            foreach (var presetStrings in presets[hardware])
-            {
-                cmbPreset.Items.Add(presetStrings);
-            }
-            SelectDefaultPreset();
-        }
-        private void SelectDefaultPreset()
-        {
-            if (cmbEncoding.SelectedIndex < 0) { return; }
-            if (cmbHardware.SelectedIndex < 0) { return; }
-            string hardwareEncod = $"{cmbHardware.SelectedIndex}{cmbEncoding.SelectedIndex}";
-            cmbPreset.SelectedIndex = presetDefaults[hardwareEncod];
-        }
+        // ── Custom list-view drawing ───────────────────────────────────────────
 
         private void listView_DrawColumnHeader(object sender, DrawListViewColumnHeaderEventArgs e)
         {
-            // Fill the header background with your choice of color
             e.Graphics.FillRectangle(new SolidBrush(Color.FromArgb(240, 240, 240)), e.Bounds);
-
-            // Draw the header text (using default or custom font/brush)
-            TextRenderer.DrawText(e.Graphics, e.Header.Text, e.Font, e.Bounds, Color.Black, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
+            TextRenderer.DrawText(e.Graphics, e.Header?.Text, e.Font, e.Bounds,
+                Color.Black, TextFormatFlags.VerticalCenter | TextFormatFlags.Left);
         }
 
-        private void listView_DrawItem(object sender, DrawListViewItemEventArgs e)
-        {
+        private void listView_DrawItem(object sender, DrawListViewItemEventArgs e) =>
             e.DrawDefault = true;
-        }
 
-        private void listView_DrawSubItem(object sender, DrawListViewSubItemEventArgs e)
-        {
+        private void listView_DrawSubItem(object sender, DrawListViewSubItemEventArgs e) =>
             e.DrawDefault = true;
+
+        // ── Tooltips ──────────────────────────────────────────────────────────
+
+        private void SetupTooltips()
+        {
+            toolTip.ShowAlways = true;
+            toolTip.SetToolTip(lblFileDrop,   "Drop files here to process.\n\nYou can select files by clicking on them, and remove them from the queue with the DELETE or BACKSPACE key.\n\n");
+            toolTip.SetToolTip(lvFiles,       "Drop files here to process.\n\nYou can select files by clicking on them, and remove them from the queue with the DELETE or BACKSPACE key.\n\n");
+            toolTip.SetToolTip(nudCRF,        "Valid values from 0 to 51.\n\n0 is losless encoding, while 51 is the worst possible encoding.\nValue of 17 or 18 is visually losless or very close.");
+            toolTip.SetToolTip(cmbColorspace, "10bit color or 8bit color");
+            toolTip.SetToolTip(cmbEncoding,   "The type of encoding to use for the output video.");
+            toolTip.SetToolTip(cmbHardware,   "CPU or GPU (Nvidia, Intel, or AMD) encoding.\n\nCPU encoding is slower, but produces marginally better quality.\nGPU encoding is much faster.  Choose your brand of GPU");
+            toolTip.SetToolTip(cmbPreset,     "Encoding presets, higher numerical value is better.  Slower encoding is better.");
+            toolTip.SetToolTip(cmbResolution, "The output resolution for the encoded video.");
+            toolTip.SetToolTip(cmbTune,       "Tune x264 video based on the type of video.\n\nNone - Don't tune the video.\nGrain - preserves the grain structure in old, grainy film material\nFilm - use for high quality movie content; lowers deblocking\nAnimation - good for cartoons; uses higher deblocking and more reference frames\nStill Image - good for slideshow-like content\nFast Decode - allows faster decoding by disabling certain filters\nZero Latency - good for fast encoding and low-latency streaming");
         }
     }
 }

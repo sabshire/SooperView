@@ -8,9 +8,9 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Platforms>AnyCPU;x64</Platforms>
     <ApplicationIcon>16x16-icon-45597-Windows.ico</ApplicationIcon>
-    <FileVersion>1.5.4</FileVersion>
-    <AssemblyVersion>1.5.4</AssemblyVersion>
-	<InformationalVersion>1.5.4</InformationalVersion>
+    <FileVersion>1.6</FileVersion>
+    <AssemblyVersion>1.6</AssemblyVersion>
+	<InformationalVersion>1.6</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

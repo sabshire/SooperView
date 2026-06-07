@@ -38,7 +38,7 @@ public class HardwareDetector
             var gpus = searcher.Get();
             foreach (var gpusEntry in gpus)
             {
-                var videoProcessor = gpusEntry["VideoProcessor"].ToString() ?? "N/A";
+                var videoProcessor = gpusEntry["VideoProcessor"]?.ToString() ?? "N/A";
                 videoProcessors.Add(videoProcessor);
             }
         }

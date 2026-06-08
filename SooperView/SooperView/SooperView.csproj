@@ -13,6 +13,11 @@
 	<InformationalVersion>1.6</InformationalVersion>
   </PropertyGroup>
 
+  <!-- remove stupid git hash that microsoft started adding to the Application.ProductVersion -->
+  <PropertyGroup>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+  
   <ItemGroup>
     <Compile Remove="ffmpeg\**" />
     <EmbeddedResource Remove="ffmpeg\**" />

@@ -200,6 +200,17 @@ namespace SooperView
             }
         }
 
+        public bool CheckIfFFmpegExists()
+        {
+            // This doesn't check if system wide ffmpeg exists, but we don't currently use system-wide ffmpeg
+            if (Directory.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg"))) {
+                bool returnValue = true;
+                if (!File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ffmpeg.exe"))) { LogHelper.LogMessageColor(this, "VideoProcessor: Missing ffmpeg.exe inside ffmpeg folder!", Color.Red); returnValue = false; } // Checks if ffmpeg.exe is missing
+                if (!File.Exists(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ffmpeg", "ffprobe.exe"))) { LogHelper.LogMessageColor(this, "VideoProcessor: Missing ffprobe.exe inside ffmpeg folder!", Color.Red); returnValue = false; } // Checks if ffprobe.exe is missing
+                return returnValue; // Return true if all files exist
+            } else { LogHelper.LogMessageColor(this, "VideoProcessor: Missing ffmpeg folder!", Color.Red); return false; } // ffmpeg folder doesn't exist
+        }
+
         private void ReportProgress(int index, int total, float percentage) =>
             ProgressChanged?.Invoke(this, new ProgressEventArgs
             {

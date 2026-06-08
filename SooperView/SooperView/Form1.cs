@@ -119,6 +119,7 @@ namespace SooperView
 
         private void Form1_Load(object sender, EventArgs e)
         {
+            _processor.CheckIfFFmpegExists();
             ConfigHandler.Setup(ReadSettings());
             SetSettings(ConfigHandler.LoadConfigFile());
         }

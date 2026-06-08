@@ -364,7 +364,9 @@
             MaximizeBox = false;
             Name = "Form1";
             Text = "SooperView";
+            FormClosing += Form1_FormClosing;
             FormClosed += Form1_FormClosed;
+            Load += Form1_Load;
             flowLayoutPanel1.ResumeLayout(false);
             flowLayoutPanel2.ResumeLayout(false);
             flowLayoutPanel2.PerformLayout();

@@ -31,6 +31,7 @@ namespace SooperView
             // Wire processor events to UI updates
             _processor.ProgressChanged    += OnProgressChanged;
             _processor.LogMessage         += (_, msg) => UpdateLog(msg);
+            LogHelper.LogMessageEvent     += (_, msg) => UpdateLogWithColor(msg);
             _processor.ProcessingStarted  += (_, _)   => SetProcessingState(true);
             _processor.ProcessingFinished += (_, _)   => SetProcessingState(false);
         }
@@ -85,6 +86,17 @@ namespace SooperView
             Preset     = cmbPreset.Text,
         };
 
+        private void SetSettings(EncoderSettings settings)
+        {
+            cmbHardware.SelectedIndex   = settings.Hardware;
+            cmbEncoding.SelectedIndex   = settings.Encoding;
+            cmbColorspace.SelectedIndex = settings.Colorspace;
+            cmbTune.SelectedIndex       = settings.Tune;
+            cmbResolution.SelectedIndex = settings.Resolution;
+            nudCRF.Value                = settings.CRF;
+            cmbPreset.Text              = settings.Preset;
+        }
+
         // ── Processor event handlers ───────────────────────────────────────────
 
         private void OnProgressChanged(object? sender, ProgressEventArgs e)
@@ -99,6 +111,18 @@ namespace SooperView
                 btnCancel.Text = $"Cancel (Progress: {e.CurrentFile} of {e.TotalFiles} / {e.Percentage:F2}%)";
             });
         }
+
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            ConfigHandler.SaveConfigFile(ReadSettings());
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            ConfigHandler.Setup(ReadSettings());
+            SetSettings(ConfigHandler.LoadConfigFile());
+        }
+
 
         // ── UI state helpers ───────────────────────────────────────────────────
 
@@ -130,6 +154,14 @@ namespace SooperView
 
         private void UpdateLog(string message) =>
             lvLog.Invoke(() => lvLog.Items.Add(message));
+
+        public void UpdateLogWithColor(SooperLog message)
+        {
+            ListViewItem msg = new ListViewItem(message.Message);
+            msg.ForeColor = message.Color;
+            lvLog.Invoke(() => lvLog.Items.Add(msg));
+        }
+            
 
         // ── File list interactions ─────────────────────────────────────────────
 
@@ -178,16 +210,26 @@ namespace SooperView
         }
 
         // ── Preset management ──────────────────────────────────────────────────
-
+        // TODO: Create some enums for this to make it easier to write code. This would make it much easier to understand which each is. To save my sanity I commented each of these for now.
         private void PopulatePresets()
         {
-            _presets[0] = new[] { "ultrafast","superfast","veryfast","faster","fast","medium","slow","slower","veryslow","placebo" };
-            _presets[1] = new[] { "p1","p2","p3","p4","p5","p6","p7" };
-            _presets[2] = new[] { "veryfast","faster","fast","medium","slow","slower","veryslow" };
-            _presets[3] = new[] { "quality","balance","speed" };
-            _presets[4] = new[] { "0","1","2","3","4","5","6","7","8","9","10","11","12" };
+            _presets[0] = new[] { "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo" }; // CPU H264/H265 ENCODING PRESETS
+            _presets[1] = new[] { "p1", "p2", "p3", "p4", "p5", "p6", "p7" }; // NVIDIA GPU ENCODING PRESETS
+            _presets[2] = new[] { "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow" }; // INTEL GPU ENCODING PRESETS
+            _presets[3] = new[] { "quality", "balance", "speed" }; // AMD GPU ENCODING PRESETS
+            _presets[4] = new[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" }; // CPU SVT-AV1 ENCODING PRESETS
         }
 
+        public string[] GrabPresetList(int key)
+        {
+            if ((key < 0) || (key > 4)) { LogHelper.LogMessageColor(this, $"GrabPresetList: Invalid key: {key}. Defaulting to CPU", Color.Red); } // Invalid key safety
+            return _presets[key];
+        }
+        
+        public int GrabPresetDefault(string key)
+        {
+            return _presetDefaults[key];
+        }
         private void PopulatePresetDefaults()
         {
             _presetDefaults["00"] = 5; _presetDefaults["01"] = 5; _presetDefaults["02"] = 6;
@@ -260,7 +302,7 @@ namespace SooperView
             toolTip.ShowAlways = true;
             toolTip.SetToolTip(lblFileDrop,   "Drop files here to process.\n\nYou can select files by clicking on them, and remove them from the queue with the DELETE or BACKSPACE key.\n\n");
             toolTip.SetToolTip(lvFiles,       "Drop files here to process.\n\nYou can select files by clicking on them, and remove them from the queue with the DELETE or BACKSPACE key.\n\n");
-            toolTip.SetToolTip(nudCRF,        "Valid values from 0 to 51.\n\n0 is losless encoding, while 51 is the worst possible encoding.\nValue of 17 or 18 is visually losless or very close.");
+            toolTip.SetToolTip(nudCRF,        "Valid values from 0 to 51.\n\n0 is losless encoding, while 51 is the worst possible encoding.\nValue of 17 or 18 is visually lossless or very close.");
             toolTip.SetToolTip(cmbColorspace, "10bit color or 8bit color");
             toolTip.SetToolTip(cmbEncoding,   "The type of encoding to use for the output video.");
             toolTip.SetToolTip(cmbHardware,   "CPU or GPU (Nvidia, Intel, or AMD) encoding.\n\nCPU encoding is slower, but produces marginally better quality.\nGPU encoding is much faster.  Choose your brand of GPU");

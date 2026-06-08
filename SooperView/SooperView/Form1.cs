@@ -222,7 +222,7 @@ namespace SooperView
 
         public string[] GrabPresetList(int key)
         {
-            if ((key < 0) || (key > 4)) { LogHelper.LogMessageColor(this, $"GrabPresetList: Invalid key: {key}. Defaulting to CPU", Color.Red); } // Invalid key safety
+            if ((key < 0) || (key > 4)) { LogHelper.LogMessageColor(this, $"GrabPresetList: Invalid key: {key}. Defaulting to CPU", Color.Red); return _presets[0]; } // Invalid key safety
             return _presets[key];
         }
         

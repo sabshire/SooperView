@@ -22,7 +22,6 @@ namespace SooperView
     {
         // ── Events ────────────────────────────────────────────────────────────
         public event EventHandler<ProgressEventArgs>? ProgressChanged;
-        public event EventHandler<string>?            LogMessage;
         public event EventHandler?                    ProcessingStarted;
         public event EventHandler?                    ProcessingFinished;
 
@@ -84,20 +83,20 @@ namespace SooperView
         {
             if (!File.Exists(source))
             {
-                Log($"{source} doesn't exist!");
+                LogHelper.LogMessageColor(this, $"{source} doesn't exist!", Color.Red);
                 return;
             }
 
             var vidProperties = GetVideoProperties(source);
             if (vidProperties == null)
             {
-                Log($"{source} is not a valid video file!");
+                LogHelper.LogMessageColor(this, $"{source} is not a valid video file!", Color.Red);
                 return;
             }
 
             if ((vidProperties.Height * 4 / 3) != vidProperties.Width)
             {
-                Log($"{source} is not a 4:3 video file!");
+                LogHelper.LogMessageColor(this, $"{source} is not a 4:3 video file!", Color.Red);
                 return;
             }
 
@@ -105,7 +104,7 @@ namespace SooperView
 
             if (!File.Exists(_xmapFilePath) || !File.Exists(_ymapFilePath))
             {
-                Log("There was a problem generating the remap files!");
+                LogHelper.LogMessageColor(this, "There was a problem generating the remap files!", Color.Red);
                 return;
             }
 
@@ -164,7 +163,7 @@ namespace SooperView
             try
             {
                 string? line;
-                while ((line = _process.StandardError.ReadLine()) != null)
+                while ((_process != null) && (line = _process.StandardError.ReadLine()) != null)
                 {
                     var match = timeRegex.Match(line);
                     if (match.Success)
@@ -183,13 +182,13 @@ namespace SooperView
                     }
                     else
                     {
-                        Log(line);
+                        LogHelper.LogMessage(this, line);
                     }
                 }
             }
             catch (Exception ex)
             {
-                Log(ex.Message);
+                LogHelper.LogMessageColor(this, ex.Message, Color.Red);
             }
 
             if (_process != null)
@@ -218,8 +217,5 @@ namespace SooperView
                 TotalFiles  = total,
                 Percentage  = percentage
             });
-
-        private void Log(string message) =>
-            LogMessage?.Invoke(this, message);
     }
 }

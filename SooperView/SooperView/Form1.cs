@@ -30,7 +30,6 @@ namespace SooperView
 
             // Wire processor events to UI updates
             _processor.ProgressChanged    += OnProgressChanged;
-            _processor.LogMessage         += (_, msg) => UpdateLog(msg);
             LogHelper.LogMessageEvent     += (_, msg) => UpdateLogWithColor(msg);
             _processor.ProcessingStarted  += (_, _)   => SetProcessingState(true);
             _processor.ProcessingFinished += (_, _)   => SetProcessingState(false);

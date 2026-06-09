@@ -14,7 +14,7 @@ namespace SooperView
         private static readonly string configEncoderSettingsFile = Path.Combine(configFolder, "EncoderSettings.config");
         private static EncoderSettings DefaultSettings;
 
-        public static void Setup(EncoderSettings defaultSettings)
+        public static void SetDefaultEncoderSettings(EncoderSettings defaultSettings)
         {
             DefaultSettings = defaultSettings;
         }

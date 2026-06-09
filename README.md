@@ -7,3 +7,5 @@ With the advent of the DJI O3 (and now O4) video systems, getting really good fo
 * You could use a program like GyroFlow to stretch and correct the lens distortion, but I personally think the result is awful for freestyle FPV footage.
 
 What you need is a way to take that 4:3 full sensor footage and stretch it to 16:9 like the GoPro SuperView mode does.  This is where SooperView comes to the rescue.
+
+<img src='data/screenshots/SooperView-Window.png' />

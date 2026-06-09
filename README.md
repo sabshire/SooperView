@@ -9,3 +9,28 @@ With the advent of the DJI O3 (and now O4) video systems, getting really good fo
 What you need is a way to take that 4:3 full sensor footage and stretch it to 16:9 like the GoPro SuperView mode does.  This is where SooperView comes to the rescue.
 
 <img src='data/screenshots/SooperView-Window.png' />
+
+# Installation
+
+You can download the latest version of SooperView [Here](https://github.com/sabshire/SooperView/releases/)
+
+# Building (Requires .NET SDK)
+
+Start by cloning the repo
+```bash
+git clone https://github.com/sabshire/SooperView
+```
+
+Change directories into the repo
+
+```bash
+cd SooperView
+```
+
+Run the build command
+
+```bash
+build
+```
+
+Your finished build will be inside the newly created Builds folder

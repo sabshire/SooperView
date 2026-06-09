@@ -8,7 +8,7 @@ namespace SooperView
         private readonly VideoProcessor _processor = new();
 
         // ── Preset tables (UI-only configuration data) ─────────────────────────
-        private readonly Dictionary<int, string[]> _presets = new();
+        private readonly Dictionary<EncoderPreset, string[]> _presets = new();
         private readonly Dictionary<string, int>   _presetDefaults = new();
 
         public Form1()
@@ -213,16 +213,15 @@ namespace SooperView
         // TODO: Create some enums for this to make it easier to write code. This would make it much easier to understand which each is. To save my sanity I commented each of these for now.
         private void PopulatePresets()
         {
-            _presets[0] = new[] { "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo" }; // CPU H264/H265 ENCODING PRESETS
-            _presets[1] = new[] { "p1", "p2", "p3", "p4", "p5", "p6", "p7" }; // NVIDIA GPU ENCODING PRESETS
-            _presets[2] = new[] { "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow" }; // INTEL GPU ENCODING PRESETS
-            _presets[3] = new[] { "quality", "balance", "speed" }; // AMD GPU ENCODING PRESETS
-            _presets[4] = new[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" }; // CPU SVT-AV1 ENCODING PRESETS
+            _presets[EncoderPreset.CPU_H26X] = new[] { "ultrafast", "superfast", "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow", "placebo" }; // CPU H264/H265 ENCODING PRESETS
+            _presets[EncoderPreset.NVIDIA] = new[] { "p1", "p2", "p3", "p4", "p5", "p6", "p7" }; // NVIDIA GPU ENCODING PRESETS
+            _presets[EncoderPreset.INTEL] = new[] { "veryfast", "faster", "fast", "medium", "slow", "slower", "veryslow" }; // INTEL GPU ENCODING PRESETS
+            _presets[EncoderPreset.AMD] = new[] { "quality", "balance", "speed" }; // AMD GPU ENCODING PRESETS
+            _presets[EncoderPreset.CPU_AV1] = new[] { "0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" }; // CPU SVT-AV1 ENCODING PRESETS
         }
 
-        public string[] GrabPresetList(int key)
+        public string[] GrabPresetList(EncoderPreset key)
         {
-            if ((key < 0) || (key > 4)) { LogHelper.LogMessageColor(this, $"GrabPresetList: Invalid key: {key}. Defaulting to CPU", Color.Red); return _presets[0]; } // Invalid key safety
             return _presets[key];
         }
         
@@ -238,7 +237,7 @@ namespace SooperView
             _presetDefaults["30"] = 1; _presetDefaults["31"] = 1; _presetDefaults["32"] = 1;
         }
 
-        private void UpdatePresets(int hardwareKey)
+        private void UpdatePresets(EncoderPreset hardwareKey)
         {
             cmbPreset.Items.Clear();
             foreach (var p in _presets[hardwareKey])
@@ -262,9 +261,9 @@ namespace SooperView
             cmbTune.Enabled = isTuneAvailable;
             if (!isTuneAvailable) cmbTune.SelectedIndex = 0;
 
-            int key = cmbHardware.SelectedIndex == 0 && cmbEncoding.SelectedIndex == 2
-                ? 4
-                : cmbHardware.SelectedIndex;
+            EncoderPreset key = cmbHardware.SelectedIndex == 0 && cmbEncoding.SelectedIndex == 2
+                ? EncoderPreset.CPU_AV1
+                : (EncoderPreset)cmbHardware.SelectedIndex;
             UpdatePresets(key);
         }
 
@@ -274,9 +273,9 @@ namespace SooperView
             cmbTune.Enabled = isTuneAvailable;
             if (!isTuneAvailable) cmbTune.SelectedIndex = 0;
 
-            int key = cmbEncoding.SelectedIndex == 2 && cmbHardware.SelectedIndex == 0
-                ? 4
-                : cmbHardware.SelectedIndex;
+            EncoderPreset key = cmbEncoding.SelectedIndex == 2 && cmbHardware.SelectedIndex == 0
+                ? EncoderPreset.CPU_AV1
+                : (EncoderPreset)cmbHardware.SelectedIndex;
             UpdatePresets(key);
         }
 

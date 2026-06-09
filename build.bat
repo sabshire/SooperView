@@ -22,17 +22,17 @@ goto invalid_choice
 
 :build_debug
 echo Building SooperView DEBUG
-dotnet build SooperView/SooperView/SooperView.csproj -c Debug -o ./Builds
+dotnet build SooperView/SooperView/SooperView.csproj -c Debug -o ./Builds/SooperView
 goto build_end
 
 :build_release
 echo Building SooperView RELEASE
-dotnet publish SooperView/SooperView/SooperView.csproj -c Release /p:DebugType=none -p:PublishDir=../../Builds
+dotnet publish SooperView/SooperView/SooperView.csproj -c Release /p:DebugType=none -p:PublishDir=../../Builds/SooperView
 goto build_end
 
 :build_release_single_file
 echo Building SooperView RELEASE with .NET Runtime
-dotnet publish SooperView/SooperView/SooperView.csproj -c Release --self-contained true /p:PublishSingleFile=true /p:EnableCompressionInSingleFile=true /p:DebugType=none -p:PublishDir=../../Builds
+dotnet publish SooperView/SooperView/SooperView.csproj -c Release --self-contained true /p:PublishSingleFile=true /p:EnableCompressionInSingleFile=true /p:DebugType=none -p:PublishDir=../../Builds/SooperView
 goto build_end
 
 :invalid_choice
@@ -52,11 +52,11 @@ powershell -Command "$ProgressPreference = 'SilentlyContinue'; Expand-Archive -P
 
 :: Moving files
 echo Moving ffmpeg to Build
-cd Builds
+cd Builds\SooperView
 mkdir ffmpeg
-cd..
-move /Y "temp\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe" "Builds\ffmpeg\"
-move /Y "temp\ffmpeg-master-latest-win64-gpl\bin\ffprobe.exe" "Builds\ffmpeg\"
+cd..\..
+move /Y "temp\ffmpeg-master-latest-win64-gpl\bin\ffmpeg.exe" "Builds\SooperView\ffmpeg\"
+move /Y "temp\ffmpeg-master-latest-win64-gpl\bin\ffprobe.exe" "Builds\SooperView\ffmpeg\"
 
 :: Remove temp
 echo Cleaning up...
@@ -75,7 +75,7 @@ if "%ZIP_CHOICE%"=="Y" goto zip_archive
 goto zip_end
 
 :zip_archive
-powershell -Command "$root=(Get-Item './Builds').FullName; $exe=(Get-Item './Builds/SooperView.exe'); $v=$exe.VersionInfo.FileVersion; $dst=\"./SooperView-$v.zip\"; if(Test-Path $dst){Remove-Item $dst -Force}; [System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null; $zip=[System.IO.Compression.ZipFile]::Open($dst, 'Create'); $files=Get-ChildItem './Builds' -Recurse | Where-Object {!$_.PSIsContainer}; $i=0; foreach($f in $files){$i++; $p=[math]::Round(($i/$files.Count)*100); Write-Host -NoNewLine \"`rArchiving: $p%%\"; $rel=$f.FullName.Replace($root, '').TrimStart('\\'); [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $f.FullName, $rel, 'Optimal') | Out-Null}; $zip.Dispose(); Write-Host ' Done!'"
+powershell -Command "$root=(Get-Item './Builds/SooperView').FullName; $exe=(Get-Item './Builds/SooperView/SooperView.exe'); $v=$exe.VersionInfo.FileVersion; $dst=\"./Builds/SooperView-$v.zip\"; if(Test-Path $dst){Remove-Item $dst -Force}; [System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem') | Out-Null; $zip=[System.IO.Compression.ZipFile]::Open($dst, 'Create'); $files=Get-ChildItem './Builds/SooperView' -Recurse | Where-Object {!$_.PSIsContainer}; $i=0; foreach($f in $files){$i++; $p=[math]::Round(($i/$files.Count)*100); Write-Host -NoNewLine \"`rArchiving: $p%%\"; $rel=$f.FullName.Replace($root, '').TrimStart('\\'); [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $f.FullName, $rel, 'Optimal') | Out-Null}; $zip.Dispose(); Write-Host ' Done!'"
 goto zip_end
 
 :zip_end

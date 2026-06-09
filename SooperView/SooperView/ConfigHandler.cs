@@ -108,30 +108,30 @@ namespace SooperView
                     int presetDefault = form.GrabPresetDefault($"{settings.Hardware}{settings.Encoding}");
 
                     // Convert presetDefault to string
-                    if (settings.Hardware == 1) // NVIDIA GPU
+                    if ((EncoderHardware)settings.Hardware == EncoderHardware.NVIDIA) // NVIDIA GPU
                     {
-                        settings.Preset = form.GrabPresetList(1)[presetDefault];
+                        settings.Preset = form.GrabPresetList(EncoderPreset.NVIDIA)[presetDefault];
                     }
 
-                    else if (settings.Hardware == 2) // INTEL GPU
+                    else if ((EncoderHardware)settings.Hardware == EncoderHardware.INTEL) // INTEL GPU
                     {
-                        settings.Preset = form.GrabPresetList(2)[presetDefault];
+                        settings.Preset = form.GrabPresetList(EncoderPreset.INTEL)[presetDefault];
                     }
 
-                    else if (settings.Hardware == 3) // AMD GPU
+                    else if ((EncoderHardware)settings.Hardware == EncoderHardware.AMD) // AMD GPU
                     {
-                        settings.Preset = form.GrabPresetList(3)[presetDefault];
+                        settings.Preset = form.GrabPresetList(EncoderPreset.AMD)[presetDefault];
                     }
 
-                    else if (settings.Hardware == 0)
+                    else if ((EncoderHardware)settings.Hardware == EncoderHardware.CPU)
                     {
-                        if (settings.Encoding == 2) // SVT-AV1 Encoder
+                        if ((Encoding)settings.Encoding == Encoding.AVI) // SVT-AV1 Encoder
                         {
-                            settings.Preset = form.GrabPresetList(4)[presetDefault];
+                            settings.Preset = form.GrabPresetList(EncoderPreset.CPU_AV1)[presetDefault];
                         }
-                        else if ((settings.Encoding == 0) || (settings.Encoding == 1)) // H264 (0) and H265 (1)
+                        else if (((Encoding)settings.Encoding == Encoding.H264) || ((Encoding)settings.Encoding == Encoding.H265)) // H264 (0) and H265 (1)
                         {
-                            settings.Preset = form.GrabPresetList(0)[presetDefault];
+                            settings.Preset = form.GrabPresetList(EncoderPreset.CPU_H26X)[presetDefault];
                         }
                         else
                         {

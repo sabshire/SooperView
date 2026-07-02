@@ -2,6 +2,8 @@
 This version will not be maintained going forward.  Latest cross-platform releases can be found here:
 https://github.com/sabshire/SooperViewtoo
 
+<hr>
+
 With the advent of the DJI O3 (and now O4) video systems, getting really good footage is very possible.  But there is a problem.  16:9 formats on the DJI cameras come at a latency (and FOV) penalties.  The solution is to fly the 4:3 modes, but now, you can't really share your epic footage on YouTube without stretching it.  There are some options that are available for doing that, but most are far from ideal.  
 
 * You can just stretch the width, and that works, but everything looks awful.  
